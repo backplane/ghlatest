@@ -1,4 +1,4 @@
-# WIP: ghlatest
+# ghlatest
 
 **NOTE**: This project is not yet ready for production use!
 
@@ -23,7 +23,7 @@ USAGE:
    ghlatest [global options] command [command options] [arguments...]
 
 VERSION:
-   v0.1.1
+   v0.0.0
 
 COMMANDS:
      list, l, ls      list available releases
@@ -55,42 +55,6 @@ OPTIONS:
    
 ```
 
-## Changelog
-
-### v0.1.5
-
-* update deps
-
-### v0.1.4
-
-* release infrastructure updates, minor documentation tweaks
-
-### v0.1.3
-
-* release infrastructure updates, minor documentation tweaks
-
-### v0.1.2
-
-* release infrastructure updates, minor documentation tweaks
-
-### v0.1.1
-
-* argument change:
-
-  * `chmod` -> `mode` - preferring mode to chmod to more accurately reflect that the file is being created with these permissions
-  * `json` - add option
-  * `source` - add option to include source zip file listing / downloading
-  * `extract` - add download option to extract downloaded archives
-  * `namefilter` -> `filter` - preferring shorter argument name
-  * `outputfile` -> `outputpath` - preferring this because with extract in place the output could be a directory
-
-
-### v0.1.0
-
-* Fixes error handling bug in latestReleasedAssets - removing null pointer deref
-* Adds README note about CA certificates requirement
-
-
 ## Type sniffing
 
 ### zipball
@@ -120,9 +84,7 @@ see here
 < X-Geo-Block-List: 
 < Date: Sun, 01 Jul 2018 06:47:12 GMT
 < X-GitHub-Request-Id: C61E:0A11:113231:28BA33:5B3878F0
-
 ```
-
 
 ## Download Logic
 
@@ -144,7 +106,6 @@ See <https://tools.ietf.org/html/rfc6266> for the standard "Use of the Content-D
 
 ### Extraction
 
-
  Download Contents                            | Action
 ----------------------------------------------|-----------
  single uncompressed file direct download     | writeFileWithNameAndMode()
@@ -162,16 +123,12 @@ do we need to create the output directory?
 
 does the zip contain one file or more than one file?
 
-
-
 new idea for extraction logic:
 
 * does the outputpath argument end in a slash?
 
     * if so, always write files into a directory
     * if the directory exists, write into it
-
-
 
 ## Repos with unusual behavior
 
@@ -262,49 +219,6 @@ The result looks like this:
   "body": "* Add a local debug server. (#187)\r\n--TRUNCATED FOR README DOCS --"
 }
 ```
-
-
-
-## Building
-
-Run `make help` to get info on builds. The general process for building on your own is just to run `make`. 
-
-```
-$ make help
-AUTHORS                        Generate the AUTHORS file from the git log
-all                            Runs a clean, build, fmt, lint, test, staticcheck, vet and install
-build                          Builds a dynamic executable or package (default target)
-clean                          Cleanup any build binaries or packages
-cover                          Runs go test with coverage
-fmt                            Verifies all files have been `gofmt`ed
-install                        Installs the executable or package
-lint                           Verifies `golint` passes
-release                        Build cross-compiled binaries for target architectures
-static                         Builds a static executable
-staticcheck                    Verifies `staticcheck` passes
-tag                            Create a new git tag to prepare to build a release
-test                           Runs the go tests
-version-bump-major             Increment the major version number in VERSION.txt, e.g. v1.2.3 -> v2.2.3
-version-bump-minor             Increment the minor version number in VERSION.txt, e.g. v1.2.3 -> v1.3.3
-version-bump-patch             Increment the patch version number in VERSION.txt, e.g. v1.2.3 -> v1.2.4
-vet                            Verifies `go vet` passes
-```
-
-### Releases
-
-If you're maintaining your own releases you'll need to update `.travis.yml` with your `api_key` (see travis-ci docs, you'll need the travis CLI and you'll want to run `travis setup releases`). Then use the following process for a patch-level version update:
-
-```
-make version-bump-patch # this increments the appropriate number in VERSION.txt
-# git add and push your changes to the branch
-# merge the branch to master
-git checkout master
-make tag
-# you will need to unlock your pgp keychain for signing purposes.
-# run the "git push" command that is printed by make
-```
-
-At this point a tagged version release will be created on gitlab and travis-ci will automatically push the build artifacts to github.
 
 ## Resources
 
