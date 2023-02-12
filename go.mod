@@ -1,4 +1,4 @@
-module ghlatest
+module github.com/backplane/ghlatest
 
 go 1.15
 
@@ -7,5 +7,5 @@ require (
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/sirupsen/logrus v1.9.0
 	github.com/urfave/cli v1.22.12
-	golang.org/x/crypto v0.0.0-20211117183948-ae814b36b871 // indirect
+	golang.org/x/crypto v0.6.0 // indirect
 )
