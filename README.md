@@ -23,17 +23,18 @@ USAGE:
    ghlatest [global options] command [command options] [arguments...]
 
 VERSION:
-   v0.0.0
+   dev
 
 COMMANDS:
-     list, l, ls      list available releases
-     download, d, dl  download the latest available release
-     json, j          print json doc representing latest release from github api
-     help, h          Shows a list of commands or help for one command
+   list, l, ls      list available releases
+   download, d, dl  download the latest available release
+   json, j          print json doc representing latest release from github api
+   help, h          Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:
    --help, -h     show help
    --version, -v  print the version
+
 ```
 
 See the help test for each command, for example:
