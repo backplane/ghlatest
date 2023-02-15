@@ -2,11 +2,11 @@
 
 build: lint test ghlatest
 
-ghlatest: main.go
+ghlatest: *.go
 	@echo '==> Building $@'
-	go build -o "$@" $<
+	go build -o "$@" $^
 
-lint: main.go
+lint: *.go
 	@echo '==> Linting'
 	go fmt
 	go vet
