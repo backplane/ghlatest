@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -35,9 +36,39 @@ var (
 
 	repoRegexp     = regexp.MustCompile(repoRegexpStr)
 	filenameRegexp = regexp.MustCompile(filenameRegexpStr)
+	archRegexp     *regexp.Regexp
+	osRegexp       *regexp.Regexp
 )
 
 func init() {
+	var arch_subregex, os_subregex string
+
+	// to see the available GOARCH and GOOS options, run "go tool dist list"
+
+	switch runtime.GOARCH {
+	case `amd64`:
+		arch_subregex = `(amd64|x86_64)`
+	case `arm64`:
+		arch_subregex = `(arm64|aarch64)`
+	case `arm`:
+		arch_subregex = `arm(v[\d\w]{2,3})?`
+	default:
+		arch_subregex = runtime.GOARCH
+	}
+	archRegexp = regexp.MustCompile(`(?i)[^0-9a-fA-F]` + arch_subregex + `[^0-9a-fA-F]`)
+
+	switch runtime.GOOS {
+	case `darwin`:
+		os_subregex = `(darwin|macos|osx)`
+	case `freebsd`:
+		os_subregex = `(freebsd|fbsd)`
+	case `windows`:
+		os_subregex = `(windows|win)`
+	default:
+		os_subregex = runtime.GOOS
+	}
+	osRegexp = regexp.MustCompile(`(?i)[^0-9a-fA-F]` + os_subregex + `[^0-9a-fA-F]`)
+
 	cli.VersionPrinter = func(c *cli.Context) {
 		fmt.Printf("version %s, commit %s, built at %s by %s\n", version, commit, date, builtBy)
 	}
@@ -58,8 +89,21 @@ func main() {
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:  "filter, f",
-					Value: "^",
+					Value: "",
 					Usage: "Filter release assets with the given regular expression",
+				},
+				cli.StringFlag{
+					Name:  "ifilter",
+					Value: "",
+					Usage: "Filter release assets with the given CASE-INSENSITIVE regular expression",
+				},
+				cli.BoolFlag{
+					Name:  "current-arch",
+					Usage: "Filter release assets with a regex describing the current processor architecture",
+				},
+				cli.BoolFlag{
+					Name:  "current-os",
+					Usage: "Filter release assets with a regex describing the current operating system",
 				},
 				cli.BoolFlag{
 					Name:  "source, s",
@@ -75,8 +119,21 @@ func main() {
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:  "filter, f",
-					Value: "^",
+					Value: "",
 					Usage: "Filter release assets with the given regular expression",
+				},
+				cli.StringFlag{
+					Name:  "ifilter",
+					Value: "",
+					Usage: "Filter release assets with the given CASE INSENSITIVE regular expression",
+				},
+				cli.BoolFlag{
+					Name:  "current-arch",
+					Usage: "Filter release assets with a regex describing the current processor architecture",
+				},
+				cli.BoolFlag{
+					Name:  "current-os",
+					Usage: "Filter release assets with a regex describing the current operating system",
 				},
 				cli.BoolFlag{
 					Name:  "source, s",
@@ -173,13 +230,13 @@ func downloadFile(url string, filepath string, mode os.FileMode) (err error) {
 	// open the output file
 	outputFH, err := os.OpenFile(filepath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, mode)
 	if err != nil {
-		return fmt.Errorf("Couldn't open '%s' for writing. Error: %v", filepath, err)
+		return fmt.Errorf("couldn't open '%s' for writing. Error: %v", filepath, err)
 	}
 
 	// Writer the body to file
 	_, err = io.Copy(outputFH, resp.Body)
 	if err != nil {
-		return fmt.Errorf("Couldn't copy download data to output file '%v'. Error: %v", outputFH, err)
+		return fmt.Errorf("couldn't copy download data to output file '%v'. Error: %v", outputFH, err)
 	}
 
 	// cleanup
@@ -188,10 +245,13 @@ func downloadFile(url string, filepath string, mode os.FileMode) (err error) {
 	return nil
 }
 
-func latestReleasedAssets(owner string, repo string, filter *regexp.Regexp) []string {
+func latestReleasedAssets(owner string, repo string, filters []*regexp.Regexp) []string {
 	// given a github owner & repo name, return a list of assets from the
 	// latest release, optionally filtering results that match the given
 	// filter regexp
+
+	logrus.Debugf("Listing %s/%s with filters: %v", owner, repo, filters)
+	fmt.Printf("Listing %s/%s with %d filters: %v\n", owner, repo, len(filters), filters)
 
 	// logrus.SetLevel(logrus.DebugLevel)
 	var result []string
@@ -205,12 +265,13 @@ func latestReleasedAssets(owner string, repo string, filter *regexp.Regexp) []st
 	}
 	for _, asset := range release.Assets {
 		assetName := asset.GetName()
-		if filter != nil {
-			if filter.MatchString(assetName) != true {
-				continue
+		for _, filter := range filters {
+			if !filter.MatchString(assetName) {
+				goto CONTINUE_OUTER
 			}
 		}
 		result = append(result, asset.GetBrowserDownloadURL())
+	CONTINUE_OUTER:
 	}
 
 	return result
@@ -220,16 +281,40 @@ func repoURLInfo(repoURL string) (owner string, repo string, err error) {
 	// given a url: return the owner name, repo name, and a success indicator
 	m, matched := matchingMap(repoRegexp, repoURL)
 	if !matched {
-		return "", "", fmt.Errorf("Invalid repo URL: '%s', it must match the regex'%s'", repoURL, repoRegexpStr)
+		return "", "", fmt.Errorf("invalid repo URL: '%s', it must match the regex'%s'", repoURL, repoRegexpStr)
 	}
 
 	return m[`owner`], m[`repo`], nil
 }
 
+func getFilterList(c *cli.Context) []*regexp.Regexp {
+	filters := make([]*regexp.Regexp, 0, 3)
+
+	// process the --filter and --ifilter argument
+	if c.String("filter") != "" {
+		filters = append(filters, regexp.MustCompile(c.String("filter")))
+	}
+	if c.String("ifilter") != "" {
+		filters = append(filters, regexp.MustCompile(`(?i)`+c.String("ifilter")))
+	}
+
+	// process the --current-arch flag
+	if c.Bool("current-arch") {
+		filters = append(filters, archRegexp)
+	}
+
+	// process the --current-os flag
+	if c.Bool("current-os") {
+		filters = append(filters, osRegexp)
+	}
+
+	return filters
+}
+
 func jsonHandler(c *cli.Context) error {
 	// extract the owner and repo names from the given URL argument
 	if c.NArg() != 1 {
-		return fmt.Errorf("You must supply a repo URL argument")
+		return fmt.Errorf("you must supply a repo URL argument")
 	}
 	owner, repo, err := repoURLInfo(c.Args().Get(0))
 	if err != nil {
@@ -263,19 +348,14 @@ func listHandler(c *cli.Context) error {
 	// make sure the URL looks OK and extract the owner and repo from it
 	// fixme: I hate using this as a list... is there a better way?
 	if c.NArg() != 1 {
-		return fmt.Errorf("You must supply a repo URL argument")
+		return fmt.Errorf("you must supply a repo URL argument")
 	}
 	owner, repo, err := repoURLInfo(c.Args().Get(0))
 	if err != nil {
 		return err
 	}
 
-	// process the filter argument
-	var filter *regexp.Regexp
-	if c.String("filter") != "" {
-		filter = regexp.MustCompile(c.String("filter"))
-	}
-	for _, assetURL := range latestReleasedAssets(owner, repo, filter) {
+	for _, assetURL := range latestReleasedAssets(owner, repo, getFilterList(c)) {
 		fmt.Printf("%s\n", assetURL)
 	}
 
@@ -287,21 +367,15 @@ func downloadHandler(c *cli.Context) error {
 	// make sure the URL looks OK and extract the owner and repo from it
 	// fixme: I hate using this as a list... is there a better way?
 	if c.NArg() != 1 {
-		return fmt.Errorf("You must supply a repo URL argument")
+		return fmt.Errorf("you must supply a repo URL argument")
 	}
 	owner, repo, err := repoURLInfo(c.Args().Get(0))
 	if err != nil {
 		return err
 	}
 
-	// process the filter argument
-	var filter *regexp.Regexp
-	if c.String("filter") != "" {
-		filter = regexp.MustCompile(c.String("filter"))
-	}
-
 	// determine the assetsURL
-	assets := latestReleasedAssets(owner, repo, filter)
+	assets := latestReleasedAssets(owner, repo, getFilterList(c))
 	if len(assets) != 1 {
 		logrus.Fatalf("found %d matching downloads, use a -f flag to get the match count down to exactly 1\n", len(assets))
 	}
@@ -318,8 +392,8 @@ func downloadHandler(c *cli.Context) error {
 		// kind of like basename
 		outputpath = assetURL[strings.LastIndex(assetURL, "/")+1:]
 		// quick validation for the above calculated name
-		if filenameRegexp.MatchString(outputpath) != true {
-			return fmt.Errorf("Could not correctly calculate an output filename from %s", assetURL)
+		if !filenameRegexp.MatchString(outputpath) {
+			return fmt.Errorf("could not correctly calculate an output filename from %s", assetURL)
 		}
 	}
 
@@ -327,7 +401,7 @@ func downloadHandler(c *cli.Context) error {
 	// fixme: consider making this a function and adding support for symbolic modes
 	mode, err := strconv.ParseUint(c.String("mode"), 8, 32)
 	if err != nil {
-		return fmt.Errorf("Could not process given mode string %s", c.String("mode"))
+		return fmt.Errorf("could not process given mode string %s", c.String("mode"))
 	}
 
 	// do the download deed
