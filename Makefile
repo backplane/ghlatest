@@ -2,11 +2,11 @@
 
 build: lint test ghlatest
 
-ghlatest: *.go
+ghlatest: *.go */*.go
 	@echo '==> Building $@'
-	go build -o "$@" $^
+	go build -o "$@"
 
-lint: *.go
+lint:
 	@echo '==> Linting'
 	go fmt
 	go vet
@@ -18,4 +18,4 @@ lint: *.go
 
 clean:
 	@echo '==> Cleaning'
-	rm -rf -- ghlatest
+	rm -rf -- ghlatest test

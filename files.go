@@ -7,7 +7,7 @@ import (
 	"os"
 )
 
-func downloadFile(url string, filepath string, mode os.FileMode) (err error) {
+func downloadFile(url string, filepath string, mode os.FileMode) error {
 	// generally applicable utility for downloading the contents of a url to
 	// a given file path.
 	// copied (with minor mod.) from: https://stackoverflow.com/a/33853856
@@ -32,7 +32,7 @@ func downloadFile(url string, filepath string, mode os.FileMode) (err error) {
 		return fmt.Errorf("couldn't open '%s' for writing. Error: %v", filepath, err)
 	}
 
-	// Writer the body to file
+	// write the body to file
 	_, err = io.Copy(outputFH, resp.Body)
 	if err != nil {
 		return fmt.Errorf("couldn't copy download data to output file '%v'. Error: %v", outputFH, err)

@@ -9,19 +9,21 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/backplane/ghlatest/extract"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 )
 
 func getFilterList(c *cli.Context) []*regexp.Regexp {
-	filters := make([]*regexp.Regexp, 0, 3)
+	filters := make([]*regexp.Regexp, 0)
+	var filterString string
 
 	// process the --filter and --ifilter argument
-	if c.String("filter") != "" {
-		filters = append(filters, regexp.MustCompile(c.String("filter")))
+	for _, filterString = range c.StringSlice("filter") {
+		filters = append(filters, regexp.MustCompile(filterString))
 	}
-	if c.String("ifilter") != "" {
-		filters = append(filters, regexp.MustCompile(`(?i)`+c.String("ifilter")))
+	for _, filterString = range c.StringSlice("ifilter") {
+		filters = append(filters, regexp.MustCompile(`(?i)`+c.String(filterString)))
 	}
 
 	// process the --current-arch flag
@@ -136,6 +138,10 @@ func downloadHandler(c *cli.Context) error {
 		return err
 	}
 	fmt.Printf("wrote to '%s'\n", outputpath)
+
+	if c.Bool("extract") {
+		extract.ExtractFile(outputpath, c.StringSlice("keep"), c.Bool("overwrite-existing-files"))
+	}
 
 	return nil
 }

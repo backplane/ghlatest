@@ -46,7 +46,7 @@ func init() {
 	default:
 		arch_subregex = runtime.GOARCH
 	}
-	archRegexp = regexp.MustCompile(`(?i)[^0-9a-fA-F]` + arch_subregex + `[^0-9a-fA-F]`)
+	archRegexp = regexp.MustCompile(`(?i)(^|[^0-9a-fA-F])` + arch_subregex + `([^0-9a-fA-F]|$)`)
 
 	switch runtime.GOOS {
 	case `darwin`:
@@ -78,14 +78,12 @@ func main() {
 			Aliases: []string{"l", "ls"},
 			Usage:   "list available releases",
 			Flags: []cli.Flag{
-				cli.StringFlag{
+				cli.StringSliceFlag{
 					Name:  "filter, f",
-					Value: "",
 					Usage: "Filter release assets with the given regular expression",
 				},
 				cli.StringFlag{
-					Name:  "ifilter",
-					Value: "",
+					Name:  "ifilter, i",
 					Usage: "Filter release assets with the given CASE-INSENSITIVE regular expression",
 				},
 				cli.BoolFlag{
@@ -108,15 +106,13 @@ func main() {
 			Aliases: []string{"d", "dl"},
 			Usage:   "download the latest available release",
 			Flags: []cli.Flag{
-				cli.StringFlag{
+				cli.StringSliceFlag{
 					Name:  "filter, f",
-					Value: "",
 					Usage: "Filter release assets with the given regular expression",
 				},
 				cli.StringFlag{
-					Name:  "ifilter",
-					Value: "",
-					Usage: "Filter release assets with the given CASE INSENSITIVE regular expression",
+					Name:  "ifilter, i",
+					Usage: "Filter release assets with the given CASE-INSENSITIVE regular expression",
 				},
 				cli.BoolFlag{
 					Name:  "current-arch",
@@ -142,6 +138,14 @@ func main() {
 				cli.BoolFlag{
 					Name:  "extract, x",
 					Usage: "Unzip the downloaded file",
+				},
+				cli.StringSliceFlag{
+					Name:  "keep, k",
+					Usage: "When extracting, only keep the files matching this/these regex(s)",
+				},
+				cli.BoolFlag{
+					Name:  "overwrite-existing-files",
+					Usage: "When extracting, if one of the output files already exists, overwrite it",
 				},
 			},
 			Action: downloadHandler,
