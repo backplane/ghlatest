@@ -1,10 +1,10 @@
 package extract
 
 import (
+	"fmt"
 	"io"
 	"io/fs"
 	"os"
-	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -14,9 +14,31 @@ import (
 
 type Archive struct {
 	Path         string
+	PathNoExt    string
 	FileHandle   *os.File
 	FileStats    fs.FileInfo
 	StreamHandle io.ReadCloser
+}
+
+type FilterSet []*regexp.Regexp
+
+type HandlerSpec struct {
+	Matcher *regexp.Regexp
+	Handler func(a *Archive, outputPath string, filters FilterSet, overwrite bool) error
+}
+
+type HandlersList []HandlerSpec
+
+var Handlers HandlersList = HandlersList{
+	HandlerSpec{regexp.MustCompile(`(?i)\.7z$`), handle7z},
+	HandlerSpec{regexp.MustCompile(`(?i)\.tar$`), handleTar},
+	HandlerSpec{regexp.MustCompile(`(?i)\.zip$`), handleZip},
+	HandlerSpec{regexp.MustCompile(`(?i)\.(tbz2|tar\.bz2)$`), handleTbz2},
+	HandlerSpec{regexp.MustCompile(`(?i)\.(tgz|tar\.gz)$`), handleTgz},
+	HandlerSpec{regexp.MustCompile(`(?i)\.(txz|tar\.xz)$`), handleTxz},
+	HandlerSpec{regexp.MustCompile(`(?i)\.bz2$`), handleBz2},
+	HandlerSpec{regexp.MustCompile(`(?i)\.gz$`), handleGz},
+	HandlerSpec{regexp.MustCompile(`(?i)\.xz$`), handleXz},
 }
 
 func OpenArchive(filePath string) (*Archive, error) {
@@ -30,6 +52,7 @@ func OpenArchive(filePath string) (*Archive, error) {
 	}
 	return &Archive{
 		Path:         filePath,
+		PathNoExt:    "",
 		FileHandle:   f,
 		FileStats:    stats,
 		StreamHandle: nil,
@@ -49,10 +72,8 @@ func (a *Archive) Close() {
 	}
 }
 
-func ExtractFile(filePath string, rawFilters []string, overwrite bool) bool {
-	fileName := path.Base(filePath)
-
-	filters := make([]*regexp.Regexp, 0)
+func ExtractFile(filePath string, rawFilters []string, overwrite bool) error {
+	filters := make(FilterSet, 0)
 	for _, filterStr := range rawFilters {
 		filter, err := regexp.Compile(filterStr)
 		if err != nil {
@@ -61,58 +82,27 @@ func ExtractFile(filePath string, rawFilters []string, overwrite bool) bool {
 		filters = append(filters, filter)
 	}
 
-	sevenZipFileName := regexp.MustCompile(`(?i)\.7z$`)
-	tarFileName := regexp.MustCompile(`(?i)\.tar$`)
-	tbz2FileName := regexp.MustCompile(`(?i)\.(tbz2|tar\.bz2)$`)
-	tgzFileName := regexp.MustCompile(`(?i)\.(tgz|tar\.gz)$`)
-	txzFileName := regexp.MustCompile(`(?i)\.(txz|tar\.xz)$`)
-	zipFileName := regexp.MustCompile(`(?i)\.zip$`)
-
 	a, err := OpenArchive(filePath)
 	if err != nil {
 		logrus.Fatalln(err)
 	}
 	defer a.Close()
 
-	switch {
-	case sevenZipFileName.MatchString(fileName):
-		logrus.Fatalln("7z extraction unimplemented")
-	case tarFileName.MatchString(fileName):
-		logrus.Infof("un-tarring %s", filePath)
-		a.Untar(".", filters, overwrite)
-	case tbz2FileName.MatchString(fileName):
-		logrus.Infof("uncompressing (bzip2) %s", fileName)
-		err = a.Bunzip2()
-		if err != nil {
-			logrus.Fatalf("uncompressing (bzip2) %s failed", fileName)
+	for _, h := range Handlers {
+		if !h.Matcher.MatchString(filePath) {
+			continue
 		}
-		logrus.Infof("un-tarring %s", fileName)
-		a.Untar(".", filters, overwrite)
-	case tgzFileName.MatchString(fileName):
-		logrus.Infof("uncompressing (gzip) %s", fileName)
-		err = a.Gunzip()
-		if err != nil {
-			logrus.Fatalf("uncompressing (gzip) %s failed: %s", fileName, err)
+		// it's important to populate this with the first matcher because we
+		// need to support different handlers for example.tar.gz and example.gz
+		a.PathNoExt = h.Matcher.ReplaceAllString(filePath, "")
+		if err := h.Handler(a, ".", filters, overwrite); err != nil {
+			logrus.Fatalf("failed to handle extraction for %s; error: %s", filePath, err)
 		}
-		logrus.Infof("un-tarring %s", fileName)
-		a.Untar(".", filters, overwrite)
-	case txzFileName.MatchString(fileName):
-		logrus.Infof("uncompressing (xz) %s", fileName)
-		err = a.Unxz()
-		if err != nil {
-			logrus.Fatalf("uncompressing (xz) %s failed", fileName)
-		}
-		logrus.Infof("un-tarring %s", fileName)
-		a.Untar(".", filters, overwrite)
-	case zipFileName.MatchString(fileName):
-		logrus.Infof("unzipping %s\n", filePath)
-		a.Unzip(".", filters, overwrite)
-	default:
-		logrus.Fatalf("%s extraction unimplemented", path.Ext(fileName))
+		logrus.Info("extraction complete")
+		return nil
 	}
-	logrus.Info("extraction complete")
 
-	return false
+	return fmt.Errorf("Don't know how to extract %s (no handler)", filePath)
 }
 
 func NormalizeFilePath(path string) string {
@@ -135,4 +125,95 @@ func NormalizeFilePath(path string) string {
 	normalized = filepath.Clean(normalized)
 
 	return normalized
+}
+
+func handle7z(a *Archive, outputPath string, filters FilterSet, overwrite bool) error {
+	return fmt.Errorf("Cannot extract %s -- 7z extraction not yet unimplemented", a.Path)
+}
+
+func handleTar(a *Archive, outputPath string, filters FilterSet, overwrite bool) error {
+	logrus.Infof("extracting (tar) %s", a.Path)
+	extractedFiles := a.Untar(outputPath, filters, overwrite)
+	if len(extractedFiles) > 0 {
+		return nil
+	}
+	return fmt.Errorf("problem extracting %s: no files were produced", a.Path)
+}
+
+func handleZip(a *Archive, outputPath string, filters FilterSet, overwrite bool) error {
+	logrus.Infof("extracting (zip) %s", a.Path)
+	extractedFiles := a.Unzip(outputPath, filters, overwrite)
+	if len(extractedFiles) > 0 {
+		return nil
+	}
+	return fmt.Errorf("problem extracting %s: no files were produced", a.Path)
+}
+
+func handleTbz2(a *Archive, outputPath string, filters FilterSet, overwrite bool) error {
+	logrus.Infof("extracting (tbz2) %s", a.Path)
+	if err := a.Bunzip2(); err != nil {
+		return fmt.Errorf("uncompressing (bzip2) %s failed; error: %s", a.Path, err)
+	}
+	extractedFiles := a.Untar(outputPath, filters, overwrite)
+	if len(extractedFiles) > 0 {
+		return nil
+	}
+	return fmt.Errorf("problem extracting %s: no files were produced", a.Path)
+}
+
+func handleTgz(a *Archive, outputPath string, filters FilterSet, overwrite bool) error {
+	logrus.Infof("extracting (tgz) %s", a.Path)
+	if err := a.Gunzip(); err != nil {
+		return fmt.Errorf("uncompressing (gzip) %s failed; error: %s", a.Path, err)
+	}
+	extractedFiles := a.Untar(outputPath, filters, overwrite)
+	if len(extractedFiles) > 0 {
+		return nil
+	}
+	return fmt.Errorf("problem extracting %s: no files were produced", a.Path)
+}
+
+func handleTxz(a *Archive, outputPath string, filters FilterSet, overwrite bool) error {
+	logrus.Infof("extracting (txz) %s", a.Path)
+	if err := a.Unxz(); err != nil {
+		return fmt.Errorf("uncompressing (xz) %s failed; error: %s", a.Path, err)
+	}
+	extractedFiles := a.Untar(outputPath, filters, overwrite)
+	if len(extractedFiles) > 0 {
+		return nil
+	}
+	return fmt.Errorf("problem extracting %s: no files were produced", a.Path)
+}
+
+func handleBz2(a *Archive, outputPath string, filters FilterSet, overwrite bool) error {
+	logrus.Infof("extracting (bz2) %s", a.Path)
+	if err := a.Bunzip2(); err != nil {
+		return fmt.Errorf("uncompressing (bz2) %s failed; error: %s", a.Path, err)
+	}
+	if err := a.WriteSingleton(a.PathNoExt, a.FileStats.Mode().Perm(), overwrite); err != nil {
+		return fmt.Errorf("Unable to write the downloaded file %s; error: %s", a.PathNoExt, err)
+	}
+	return nil
+}
+
+func handleGz(a *Archive, outputPath string, filters FilterSet, overwrite bool) error {
+	logrus.Infof("extracting (gz) %s", a.Path)
+	if err := a.Gunzip(); err != nil {
+		return fmt.Errorf("uncompressing (gz) %s failed; error: %s", a.Path, err)
+	}
+	if err := a.WriteSingleton(a.PathNoExt, a.FileStats.Mode().Perm(), overwrite); err != nil {
+		return fmt.Errorf("Unable to write the downloaded file %s; error: %s", a.PathNoExt, err)
+	}
+	return nil
+}
+
+func handleXz(a *Archive, outputPath string, filters FilterSet, overwrite bool) error {
+	logrus.Infof("extracting (xz) %s", a.Path)
+	if err := a.Unxz(); err != nil {
+		return fmt.Errorf("uncompressing (xz) %s failed; error: %s", a.Path, err)
+	}
+	if err := a.WriteSingleton(a.PathNoExt, a.FileStats.Mode().Perm(), overwrite); err != nil {
+		return fmt.Errorf("Unable to write the downloaded file %s; error: %s", a.PathNoExt, err)
+	}
+	return nil
 }

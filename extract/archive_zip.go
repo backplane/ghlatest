@@ -5,7 +5,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"path"
 	"regexp"
 
 	"github.com/sirupsen/logrus"
@@ -28,7 +27,7 @@ func (a *Archive) Unzip(outputDir string, filters []*regexp.Regexp, overwrite bo
 
 	for _, f := range r.File {
 		filePath := NormalizeFilePath(f.Name)
-		fileDir, _ := path.Split(filePath)
+		mode := f.Mode().Perm()
 		if filtering {
 			var include_file bool = false
 			for _, filter := range filters {
@@ -38,48 +37,41 @@ func (a *Archive) Unzip(outputDir string, filters []*regexp.Regexp, overwrite bo
 				}
 			}
 			if !include_file {
+				logrus.Debugf("Skipping %s", filePath)
 				continue
 			}
 		}
 
 		if f.FileInfo().IsDir() {
-			logrus.Infof("creating directory %s mode: %#o", filePath, f.Mode())
-			err := os.MkdirAll(filePath, f.Mode())
-			if err != nil {
+			logrus.Infof("creating directory %s mode: %#o", filePath, mode)
+			if err := os.Mkdir(filePath, mode); err != nil {
 				log.Fatal(err)
 			}
 			extractedFiles = append(extractedFiles, filePath)
 			continue
 		}
-		if fileDir != "" {
-			err := os.MkdirAll(filePath, f.Mode())
-			if err != nil {
-				log.Fatal(err)
-			}
-		}
 
 		srcContents, err := f.Open()
 		if err != nil {
-			log.Fatal(err)
+			log.Fatalf("Opening source contents of %s failed; error: %s", filePath, err)
 		}
 
-		fileMode := os.O_WRONLY | os.O_CREATE
+		openFlags := os.O_WRONLY | os.O_CREATE
 		if overwrite {
-			fileMode |= os.O_EXCL
+			openFlags |= os.O_EXCL
 		}
-
-		outputFile, err := os.OpenFile(filePath, fileMode, f.Mode())
+		outputFile, err := os.OpenFile(filePath, openFlags, mode)
 		if err != nil {
-			log.Fatal(err)
+			log.Fatalf("Opening output file of %s failed; error: %s", filePath, err)
 		}
 
-		_, err = io.Copy(outputFile, srcContents)
+		bytes, err := io.Copy(outputFile, srcContents)
 		if err != nil {
 			log.Fatal(err)
 		}
 		outputFile.Close()
 		srcContents.Close()
-		logrus.Infof("created %s mode: %#o", filePath, f.Mode())
+		logrus.Infof("created %d-byte file: %s mode: %#o", bytes, filePath, mode)
 		extractedFiles = append(extractedFiles, filePath)
 	}
 	return extractedFiles

@@ -7,7 +7,7 @@ import (
 	"os"
 )
 
-func downloadFile(url string, filepath string, mode os.FileMode) error {
+func downloadFile(url string, filepath string, mode os.FileMode, overwrite bool) error {
 	// generally applicable utility for downloading the contents of a url to
 	// a given file path.
 	// copied (with minor mod.) from: https://stackoverflow.com/a/33853856
@@ -27,7 +27,12 @@ func downloadFile(url string, filepath string, mode os.FileMode) error {
 	}
 
 	// open the output file
-	outputFH, err := os.OpenFile(filepath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, mode)
+	openFlags := os.O_WRONLY | os.O_CREATE
+	if overwrite {
+		openFlags |= os.O_EXCL
+	}
+
+	outputFH, err := os.OpenFile(filepath, openFlags, mode)
 	if err != nil {
 		return fmt.Errorf("couldn't open '%s' for writing. Error: %v", filepath, err)
 	}

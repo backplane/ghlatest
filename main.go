@@ -144,8 +144,12 @@ func main() {
 					Usage: "When extracting, only keep the files matching this/these regex(s)",
 				},
 				cli.BoolFlag{
-					Name:  "overwrite-existing-files",
+					Name:  "overwrite",
 					Usage: "When extracting, if one of the output files already exists, overwrite it",
+				},
+				cli.BoolFlag{
+					Name:  "rm",
+					Usage: "After extracting the archive, delete it",
 				},
 			},
 			Action: downloadHandler,

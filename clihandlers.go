@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"regexp"
 	"strconv"
@@ -132,15 +133,26 @@ func downloadHandler(c *cli.Context) error {
 		return fmt.Errorf("could not process given mode string %s", c.String("mode"))
 	}
 
-	// do the download deed
-	err = downloadFile(assets[0], outputpath, os.FileMode(mode))
+	// do the download
+	err = downloadFile(assets[0], outputpath, os.FileMode(mode), c.Bool("overwrite"))
 	if err != nil {
 		return err
 	}
 	fmt.Printf("wrote to '%s'\n", outputpath)
 
 	if c.Bool("extract") {
-		extract.ExtractFile(outputpath, c.StringSlice("keep"), c.Bool("overwrite-existing-files"))
+		extract.ExtractFile(outputpath, c.StringSlice("keep"), c.Bool("overwrite"))
+	}
+
+	if c.Bool("rm") {
+		if !c.Bool("extract") {
+			log.Fatalf("The --rm option doesn't make sense unless you --extract")
+		}
+
+		if err = os.Remove(outputpath); err != nil {
+			logrus.Fatalf("failed to --rm the downloaded archive \"%s\", error: %s", outputpath, err)
+		}
+		logrus.Infof("Removed \"%s\" after extraction", outputpath)
 	}
 
 	return nil

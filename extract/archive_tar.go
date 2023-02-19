@@ -71,12 +71,12 @@ func (a *Archive) Untar(outputDir string, filters []*regexp.Regexp, overwrite bo
 			}
 		}
 
-		fileMode := os.O_WRONLY | os.O_CREATE
+		openFlags := os.O_WRONLY | os.O_CREATE
 		if overwrite {
-			fileMode |= os.O_EXCL
+			openFlags |= os.O_EXCL
 		}
 
-		outputFile, err := os.OpenFile(filePath, fileMode, permissions)
+		outputFile, err := os.OpenFile(filePath, openFlags, permissions)
 		if err != nil {
 			log.Fatal(err)
 		}
