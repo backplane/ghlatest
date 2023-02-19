@@ -35,6 +35,7 @@ GLOBAL OPTIONS:
    --help, -h     show help
    --version, -v  print the version
 
+
 ```
 
 See the help test for each command, for example:
@@ -48,12 +49,18 @@ USAGE:
    ghlatest download [command options] [arguments...]
 
 OPTIONS:
-   --filter value, -f value      Filter release assets with the given regular expression (default: "^")
+   --filter value, -f value      Filter release assets with the given regular expression
+   --ifilter value, -i value     Filter release assets with the given CASE-INSENSITIVE regular expression
+   --current-arch                Filter release assets with a regex describing the current processor architecture
+   --current-os                  Filter release assets with a regex describing the current operating system
    --source, -s                  List/download source zip files instead of released assets
    --outputpath value, -o value  The name of the file to write to
    --mode value, -m value        Set the output file's protection mode (ala chmod) (default: "0755")
    --extract, -x                 Unzip the downloaded file
+   --keep value, -k value        When extracting, only keep the files matching this/these regex(s)
+   --overwrite-existing-files    When extracting, if one of the output files already exists, overwrite it
    
+
 ```
 
 ## Type sniffing
