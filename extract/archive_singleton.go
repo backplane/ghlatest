@@ -4,9 +4,8 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"os"
 
-	"github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 )
 
 func (a *Archive) WriteSingleton(outputPath string, mode fs.FileMode, overwrite bool) error {
@@ -14,14 +13,9 @@ func (a *Archive) WriteSingleton(outputPath string, mode fs.FileMode, overwrite 
 		// StreamHandle must be available because we (previously) decompressed
 		return fmt.Errorf("StreamHandle is nil; didn't find any decompressed data")
 	}
-	logrus.Info("Using StreamHandle to write output file")
+	log.Debug("Using StreamHandle to write output file")
 
-	openFlags := os.O_WRONLY | os.O_CREATE
-	if overwrite {
-		openFlags |= os.O_EXCL
-	}
-
-	outputFile, err := os.OpenFile(outputPath, openFlags, mode)
+	outputFile, err := NewFile(outputPath, mode, overwrite)
 	if err != nil {
 		return fmt.Errorf("Failed to open output file \"%s\"; error: %s", outputPath, err)
 	}
@@ -31,7 +25,7 @@ func (a *Archive) WriteSingleton(outputPath string, mode fs.FileMode, overwrite 
 		return fmt.Errorf("Failed to write data to output file; error: %s", err)
 	}
 	outputFile.Close()
-	logrus.Infof("Created %s mode: %#o", outputPath, mode)
+	log.Infof("Created %s mode: %#o", outputPath, mode)
 
 	return nil
 }

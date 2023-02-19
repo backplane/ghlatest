@@ -6,8 +6,8 @@ import (
 	"regexp"
 	"runtime"
 
-	"github.com/sirupsen/logrus"
-	"github.com/urfave/cli"
+	log "github.com/sirupsen/logrus"
+	cli "github.com/urfave/cli/v2"
 )
 
 const (
@@ -66,105 +66,118 @@ func init() {
 }
 
 func main() {
-	app := cli.NewApp()
-	app.Name = PROG
-	app.Version = version
-	app.Usage = "Release locator for software on github"
-	app.Flags = []cli.Flag{}
-	app.EnableBashCompletion = true
-	app.Commands = []cli.Command{
-		{
-			Name:    "list",
-			Aliases: []string{"l", "ls"},
-			Usage:   "list available releases",
-			Flags: []cli.Flag{
-				cli.StringSliceFlag{
-					Name:  "filter, f",
-					Usage: "Filter release assets with the given regular expression",
-				},
-				cli.StringFlag{
-					Name:  "ifilter, i",
-					Usage: "Filter release assets with the given CASE-INSENSITIVE regular expression",
-				},
-				cli.BoolFlag{
-					Name:  "current-arch",
-					Usage: "Filter release assets with a regex describing the current processor architecture",
-				},
-				cli.BoolFlag{
-					Name:  "current-os",
-					Usage: "Filter release assets with a regex describing the current operating system",
-				},
-				cli.BoolFlag{
-					Name:  "source, s",
-					Usage: "List/download source zip files instead of released assets",
+	app := &cli.App{
+		Name:                 PROG,
+		Version:              version,
+		EnableBashCompletion: true,
+		Usage:                "Release locator for software on github",
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:  "verbosity",
+				Usage: "Sets the verbosity level of the log messages printed by the program",
+				Action: func(c *cli.Context, verbosity string) error {
+					level, err := log.ParseLevel(verbosity)
+					if err != nil {
+						return err
+					}
+					log.SetLevel(level)
+					return err
 				},
 			},
-			Action: listHandler,
 		},
-		{
-			Name:    "download",
-			Aliases: []string{"d", "dl"},
-			Usage:   "download the latest available release",
-			Flags: []cli.Flag{
-				cli.StringSliceFlag{
-					Name:  "filter, f",
-					Usage: "Filter release assets with the given regular expression",
+		Commands: []*cli.Command{
+			{
+				Name:    "list",
+				Aliases: []string{"l", "ls"},
+				Usage:   "list available releases",
+				Flags: []cli.Flag{
+					&cli.StringSliceFlag{
+						Name:  "filter, f",
+						Usage: "Filter release assets with the given regular expression",
+					},
+					&cli.StringFlag{
+						Name:  "ifilter, i",
+						Usage: "Filter release assets with the given CASE-INSENSITIVE regular expression",
+					},
+					&cli.BoolFlag{
+						Name:  "current-arch",
+						Usage: "Filter release assets with a regex describing the current processor architecture",
+					},
+					&cli.BoolFlag{
+						Name:  "current-os",
+						Usage: "Filter release assets with a regex describing the current operating system",
+					},
+					&cli.BoolFlag{
+						Name:  "source, s",
+						Usage: "List/download source zip files instead of released assets",
+					},
 				},
-				cli.StringFlag{
-					Name:  "ifilter, i",
-					Usage: "Filter release assets with the given CASE-INSENSITIVE regular expression",
-				},
-				cli.BoolFlag{
-					Name:  "current-arch",
-					Usage: "Filter release assets with a regex describing the current processor architecture",
-				},
-				cli.BoolFlag{
-					Name:  "current-os",
-					Usage: "Filter release assets with a regex describing the current operating system",
-				},
-				cli.BoolFlag{
-					Name:  "source, s",
-					Usage: "List/download source zip files instead of released assets",
-				},
-				cli.StringFlag{
-					Name:  "outputpath, o",
-					Usage: "The name of the file to write to",
-				},
-				cli.StringFlag{
-					Name:  "mode, m",
-					Value: "0755",
-					Usage: "Set the output file's protection mode (ala chmod)",
-				},
-				cli.BoolFlag{
-					Name:  "extract, x",
-					Usage: "Unzip the downloaded file",
-				},
-				cli.StringSliceFlag{
-					Name:  "keep, k",
-					Usage: "When extracting, only keep the files matching this/these regex(s)",
-				},
-				cli.BoolFlag{
-					Name:  "overwrite",
-					Usage: "When extracting, if one of the output files already exists, overwrite it",
-				},
-				cli.BoolFlag{
-					Name:  "rm",
-					Usage: "After extracting the archive, delete it",
-				},
+				Action: listHandler,
 			},
-			Action: downloadHandler,
-		},
-		{
-			Name:    "json",
-			Aliases: []string{"j"},
-			Usage:   "print json doc representing latest release from github api",
-			Flags:   []cli.Flag{},
-			Action:  jsonHandler,
+			{
+				Name:    "download",
+				Aliases: []string{"d", "dl"},
+				Usage:   "download the latest available release",
+				Flags: []cli.Flag{
+					&cli.StringSliceFlag{
+						Name:  "filter, f",
+						Usage: "Filter release assets with the given regular expression",
+					},
+					&cli.StringFlag{
+						Name:  "ifilter, i",
+						Usage: "Filter release assets with the given CASE-INSENSITIVE regular expression",
+					},
+					&cli.BoolFlag{
+						Name:  "current-arch",
+						Usage: "Filter release assets with a regex describing the current processor architecture",
+					},
+					&cli.BoolFlag{
+						Name:  "current-os",
+						Usage: "Filter release assets with a regex describing the current operating system",
+					},
+					&cli.BoolFlag{
+						Name:  "source, s",
+						Usage: "List/download source zip files instead of released assets",
+					},
+					&cli.StringFlag{
+						Name:  "outputpath, o",
+						Usage: "The name of the file to write to",
+					},
+					&cli.StringFlag{
+						Name:  "mode, m",
+						Value: "0755",
+						Usage: "Set the output file's protection mode (ala chmod)",
+					},
+					&cli.BoolFlag{
+						Name:  "extract, x",
+						Usage: "Unzip the downloaded file",
+					},
+					&cli.StringSliceFlag{
+						Name:  "keep, k",
+						Usage: "When extracting, only keep the files matching this/these regex(s)",
+					},
+					&cli.BoolFlag{
+						Name:  "overwrite",
+						Usage: "When extracting, if one of the output files already exists, overwrite it",
+					},
+					&cli.BoolFlag{
+						Name:  "rm",
+						Usage: "After extracting the archive, delete it",
+					},
+				},
+				Action: downloadHandler,
+			},
+			{
+				Name:    "json",
+				Aliases: []string{"j"},
+				Usage:   "print json doc representing latest release from github api",
+				Flags:   []cli.Flag{},
+				Action:  jsonHandler,
+			},
 		},
 	}
 
-	err := app.Run(os.Args)
-	if err != nil {
-		logrus.Fatalf("%v\n", err)
+	if err := app.Run(os.Args); err != nil {
+		log.Fatalf("%v\n", err)
 	}
 }
