@@ -102,7 +102,7 @@ func handleZip(a *Archive, outputPath string, filters FilterSet, overwrite bool)
 
 func handleTbz2(a *Archive, outputPath string, filters FilterSet, overwrite bool) error {
 	log.Infof("extracting (tbz2) %s", a.Path)
-	if err := a.Bunzip2(); err != nil {
+	if err := a.Unbzip2(); err != nil {
 		return fmt.Errorf("uncompressing (bzip2) %s failed; error: %s", a.Path, err)
 	}
 	extractedFiles := a.Untar(outputPath, filters, overwrite)
@@ -114,7 +114,7 @@ func handleTbz2(a *Archive, outputPath string, filters FilterSet, overwrite bool
 
 func handleTgz(a *Archive, outputPath string, filters FilterSet, overwrite bool) error {
 	log.Infof("extracting (tgz) %s", a.Path)
-	if err := a.Gunzip(); err != nil {
+	if err := a.Ungzip(); err != nil {
 		return fmt.Errorf("uncompressing (gzip) %s failed; error: %s", a.Path, err)
 	}
 	extractedFiles := a.Untar(outputPath, filters, overwrite)
@@ -138,7 +138,7 @@ func handleTxz(a *Archive, outputPath string, filters FilterSet, overwrite bool)
 
 func handleBz2(a *Archive, outputPath string, filters FilterSet, overwrite bool) error {
 	log.Infof("extracting (bz2) %s", a.Path)
-	if err := a.Bunzip2(); err != nil {
+	if err := a.Unbzip2(); err != nil {
 		return fmt.Errorf("uncompressing (bz2) %s failed; error: %s", a.Path, err)
 	}
 	if err := a.WriteSingleton(a.PathNoExt, a.FileStats.Mode().Perm(), overwrite); err != nil {
@@ -149,7 +149,7 @@ func handleBz2(a *Archive, outputPath string, filters FilterSet, overwrite bool)
 
 func handleGz(a *Archive, outputPath string, filters FilterSet, overwrite bool) error {
 	log.Infof("extracting (gz) %s", a.Path)
-	if err := a.Gunzip(); err != nil {
+	if err := a.Ungzip(); err != nil {
 		return fmt.Errorf("uncompressing (gz) %s failed; error: %s", a.Path, err)
 	}
 	if err := a.WriteSingleton(a.PathNoExt, a.FileStats.Mode().Perm(), overwrite); err != nil {
