@@ -161,7 +161,7 @@ func main() {
 					&cli.BoolFlag{
 						Name:    "extract",
 						Aliases: []string{"x"},
-						Usage:   "Extract files from the downloaded archive (supports zip, gzip, bzip2, xz, and tar formats)",
+						Usage:   "Extract files from the downloaded archive (supports zip, gzip, bzip2, xz, 7z, and tar formats)",
 					},
 					&cli.StringSliceFlag{
 						Name:    "keep",
@@ -190,7 +190,7 @@ func main() {
 			{
 				Name:    "extract",
 				Aliases: []string{"x"},
-				Usage:   "extract the given files",
+				Usage:   "Extract files from the given archive (supports zip, gzip, bzip2, xz, 7z, and tar formats)",
 				Flags: []cli.Flag{
 					&cli.StringFlag{
 						Name:    "outputpath",

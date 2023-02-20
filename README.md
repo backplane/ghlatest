@@ -31,6 +31,7 @@ COMMANDS:
    list, ls      list available releases
    download, dl  download the latest available release
    json, j       print json doc representing latest release from github api
+   extract, x    Extract files from the given archive (supports zip, gzip, bzip2, xz, 7z, and tar formats)
    help, h       Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:
@@ -43,7 +44,6 @@ GLOBAL OPTIONS:
 ### Download Help
 
 ```
-$ ghlatest download -h
 NAME:
    ghlatest download - download the latest available release
 
@@ -58,7 +58,7 @@ OPTIONS:
    --source, -s                                           List/download source zip files instead of released assets (default: false)
    --outputpath value, -o value                           The name of the file to write to
    --mode value, -m value                                 Set the output file's protection mode (ala chmod) (default: "0755")
-   --extract, -x                                          Extract files from the downloaded archive (supports zip, gzip, bzip2, xz, and tar formats) (default: false)
+   --extract, -x                                          Extract files from the downloaded archive (supports zip, gzip, bzip2, xz, 7z, and tar formats) (default: false)
    --keep value, -k value [ --keep value, -k value ]      When extracting, only keep the files matching this/these regex(s)
    --overwrite                                            When extracting, if one of the output files already exists, overwrite it (default: false)
    --remove-archive, --rm                                 After extracting the archive, delete it (default: false)
@@ -82,6 +82,24 @@ OPTIONS:
    --current-os                                           Filter release assets with a regex describing the current operating system (default: false)
    --source, -s                                           List/download source zip files instead of released assets (default: false)
    --help, -h                                             show help
+```
+
+### Extract Help
+
+```
+NAME:
+   ghlatest extract - Extract files from the given archive (supports zip, gzip, bzip2, xz, 7z, and tar formats)
+
+USAGE:
+   ghlatest extract [command options] [arguments...]
+
+OPTIONS:
+   --outputpath value, -o value                       The name of the file to write to
+   --mode value, -m value                             Set the output file's protection mode (ala chmod) (default: "0755")
+   --keep value, -k value [ --keep value, -k value ]  When extracting, only keep the files matching this/these regex(s)
+   --overwrite                                        When extracting, if one of the output files already exists, overwrite it (default: false)
+   --remove-archive, --rm                             After extracting the archive, delete it (default: false)
+   --help, -h                                         show help
 ```
 
 ## Example Session
