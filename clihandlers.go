@@ -155,3 +155,26 @@ func downloadHandler(c *cli.Context) error {
 
 	return nil
 }
+
+func extractHandler(c *cli.Context) error {
+	if c.NArg() != 1 {
+		return fmt.Errorf("you must supply a file to extract")
+	}
+	archivePath := c.Args().Get(0)
+
+	if err := extract.ExtractFile(archivePath, c.StringSlice("keep"), c.Bool("overwrite")); err != nil {
+		log.Errorf("failed to extract the archive \"%s\"; error: %s", archivePath, err)
+		return err
+	}
+
+	// cleanup the download
+	if c.Bool("remove-archive") {
+		if err := os.Remove(archivePath); err != nil {
+			log.Errorf("failed to remove the archive \"%s\", error: %s", archivePath, err)
+			return err
+		}
+		log.Infof("removed \"%s\" after extraction", archivePath)
+	}
+
+	return nil
+}

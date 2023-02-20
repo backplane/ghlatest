@@ -79,7 +79,12 @@ func ExtractFile(filePath string, filterStrings []string, overwrite bool) error 
 }
 
 func handle7z(a *Archive, outputPath string, filters FilterSet, overwrite bool) error {
-	return fmt.Errorf("Cannot extract %s -- 7z extraction not yet implemented", a.Path)
+	log.Infof("extracting (7z) %s", a.Path)
+	extractedFiles := a.Un7z(outputPath, filters, overwrite)
+	if len(extractedFiles) > 0 {
+		return nil
+	}
+	return fmt.Errorf("problem extracting %s: no files were produced", a.Path)
 }
 
 func handleTar(a *Archive, outputPath string, filters FilterSet, overwrite bool) error {

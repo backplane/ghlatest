@@ -161,7 +161,7 @@ func main() {
 					&cli.BoolFlag{
 						Name:    "extract",
 						Aliases: []string{"x"},
-						Usage:   "Extract files from the downloaded archive (supports zip, gzip, bzip2, xz, and tar formats)",
+						Usage:   "Extract files from the downloaded archive (supports zip, gzip, bzip2, xz, 7z, and tar formats)",
 					},
 					&cli.StringSliceFlag{
 						Name:    "keep",
@@ -186,6 +186,39 @@ func main() {
 				Usage:   "print json doc representing latest release from github api",
 				Flags:   []cli.Flag{},
 				Action:  jsonHandler,
+			},
+			{
+				Name:    "extract",
+				Aliases: []string{"x"},
+				Usage:   "Extract files from the given archive (supports zip, gzip, bzip2, xz, 7z, and tar formats)",
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:    "outputpath",
+						Aliases: []string{"o"},
+						Usage:   "The name of the file to write to",
+					},
+					&cli.StringFlag{
+						Name:    "mode",
+						Aliases: []string{"m"},
+						Value:   "0755",
+						Usage:   "Set the output file's protection mode (ala chmod)",
+					},
+					&cli.StringSliceFlag{
+						Name:    "keep",
+						Aliases: []string{"k"},
+						Usage:   "When extracting, only keep the files matching this/these regex(s)",
+					},
+					&cli.BoolFlag{
+						Name:  "overwrite",
+						Usage: "When extracting, if one of the output files already exists, overwrite it",
+					},
+					&cli.BoolFlag{
+						Name:    "remove-archive",
+						Aliases: []string{"rm"},
+						Usage:   "After extracting the archive, delete it",
+					},
+				},
+				Action: extractHandler,
 			},
 		},
 	}
