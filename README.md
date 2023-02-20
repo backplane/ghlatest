@@ -162,7 +162,7 @@ drwxr-xr-x   21 user     user           672 Feb 20 09:23 ..
 -rwxr-xr-x    1 user     user        825399 Feb 20 09:23 snakeeyes_0.2.3_linux_arm64.tar.gz
 ```
 
-That produced a lot of files that I don't want at the moment. So I'll add a `--keep snakeeyes` filter to only extract that one binary, and I'll also add `--rm` to remove the downloaded archive after I'm done with it.
+That produced a lot of files that I don't want at the moment. So I'll add a `--keep snakeeyes` filter so that I'm only extracting that solitary file. I'll also add `--rm` to remove the downloaded archive (`snakeeyes_0.2.3_linux_arm64.tar.gz`) after I'm done with it.
 
 ```
 $ ghlatest dl --current-os --current-arch --extract --keep snakeeyes --rm glvnst/snakeeyes
@@ -178,7 +178,7 @@ drwxr-xr-x   21 user     user           672 Feb 20 09:23 ..
 -rwxr-xr-x    1 user     user       2359296 Feb 20 09:26 snakeeyes
 ```
 
-Now we have a command which produces the file that I want from the latest release of the given GitHub repo, it can be used in scripting contexts or in container infrastructure, such as this `Dockerfile`:
+Now that we have a command which produces the file that I want from the latest release of the given GitHub repo, we can use it in scripting contexts or in container infrastructure, such as this `Dockerfile`:
 
 ```Dockerfile
 FROM backplane/ghlatest as downloader
