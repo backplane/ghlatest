@@ -1,3 +1,9 @@
+// Extract implements the extraction of files from various file archive or compression formats.
+//
+// The entrypoint for the package is ExtractFile which is meant to call the
+// appropriate handlers for the file at the given path based on the filename
+// extensions. OpenArchive may also be used. The resulting Archive struct has
+// methods which handle common archive types.
 package extract
 
 import (
@@ -7,15 +13,27 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// FilterSet contains compiled regular expressions which identify files to be
+// included during an extraction process. If the FilterSet is empty all files
+// will be extracted.
 type FilterSet []*regexp.Regexp
 
-type HandlerFunc func(a *Archive, outputPath string, filters FilterSet, overwrite bool) error
-type ExtHandler struct {
+// HandlerFunc is the signature of functions which are called by ExtractFile to
+// process an Archive. outputPath is the path to the directory where files
+// should be extracted. filters (if non-empty) contain regular expressions
+// which select files to be included in the output. When overwrite is true
+// existing files may be overwritten by the extraction process (instead of
+// halting the program)
+type handlerFunc func(a *Archive, outputPath string, filters FilterSet, overwrite bool) error
+
+// ExtHandler is used by ExtractFile to define a regexp matcher for filenames
+// and which function can handle extraction for that type of file.
+type extHandler struct {
 	Matcher *regexp.Regexp
-	Handler HandlerFunc
+	Handler handlerFunc
 }
 
-var extHandlers = []ExtHandler{
+var extHandlers = []extHandler{
 	{regexp.MustCompile(`(?i)\.7z$`), handle7z},
 	{regexp.MustCompile(`(?i)\.tar$`), handleTar},
 	{regexp.MustCompile(`(?i)\.zip$`), handleZip},
@@ -27,14 +45,14 @@ var extHandlers = []ExtHandler{
 	{regexp.MustCompile(`(?i)\.xz$`), handleXz},
 }
 
-func ExtractFile(filePath string, rawFilters []string, overwrite bool) error {
-	filters := make(FilterSet, 0)
-	for _, filterStr := range rawFilters {
-		filter, err := regexp.Compile(filterStr)
-		if err != nil {
-			log.Fatalf("failed to compile --keep filter: \"%s\" - error: %s", filterStr, err)
-		}
-		filters = append(filters, filter)
+// ExtractFile extracts the contents of the file archive at the given filePath.
+// The filterStrings argument accepts a slice of strings (which will be compiled
+// into [regexp.Regexp] objects) to filter what will be extracted from the file
+// archive.
+func ExtractFile(filePath string, filterStrings []string, overwrite bool) error {
+	filters, err := compileFilters(filterStrings)
+	if err != nil {
+		log.Fatalf("failed to compile --keep filters, error: %s", err)
 	}
 
 	a, err := OpenArchive(filePath)

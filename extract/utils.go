@@ -1,6 +1,7 @@
 package extract
 
 import (
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -11,7 +12,12 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// NormalizeFilePath is a utility function that rewrites file paths specified
+// to ensure that they are relative to the current working directory and don't
+// have names that are potentially a nuisence for users (such as names composed
+// only of whitespace characters, only dots, etc.)
 func NormalizeFilePath(path string) string {
+	// fixme: this is a mess
 	driveLabels := regexp.MustCompile(`^[A-Z]:\\*`)
 	onlyDotsAndSpaces := regexp.MustCompile(`^[.\s]*$`)
 	validatedPathParts := make([]string, 0)
@@ -33,18 +39,24 @@ func NormalizeFilePath(path string) string {
 	return normalized
 }
 
+// NewFile wraps os.OpenFile to standardize the way the package creates output files.
+// The path argument accepts the file path to the given output file, the mode
+// argument accepts an [fs.FileMode] which the file will be created with, and
+// overwrite determines whether existing files should be overwritten or and error
+// produced.
 func NewFile(path string, mode fs.FileMode, overwrite bool) (*os.File, error) {
 	openFlags := os.O_WRONLY | os.O_CREATE | os.O_EXCL
 	if overwrite {
-		// clear the exclusive flag
-		openFlags &^= os.O_EXCL
+		openFlags &^= os.O_EXCL // remove the flag
 	}
 
-	log.Debugf("Creating new file; path:%s; flags:%v; mode:%#o", path, FlagsString(openFlags), mode)
+	log.Debugf("Creating new file; path:%s; flags:%v; mode:%#o", path, flagsString(openFlags), mode)
 	return os.OpenFile(path, openFlags, mode)
 }
 
-func FlagsString(flags int) string {
+// flagsString returns a string representing the active bits in the given
+// [os.Open] flags bitmask
+func flagsString(flags int) string {
 	flagDefs := &[]struct {
 		flagValue int
 		flagName  string
@@ -67,4 +79,17 @@ func FlagsString(flags int) string {
 	}
 
 	return strings.Join(enabledFlags, "|")
+}
+
+// compileFilters takes a list of regular expression strings and compiles them into a [FilterSet].
+func compileFilters(filterStrings []string) (FilterSet, error) {
+	filters := make(FilterSet, 0, len(filterStrings))
+	for _, filterStr := range filterStrings {
+		filter, err := regexp.Compile(filterStr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to compile filter: \"%s\" - error: %s", filterStr, err)
+		}
+		filters = append(filters, filter)
+	}
+	return filters, nil
 }

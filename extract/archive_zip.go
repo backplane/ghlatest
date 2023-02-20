@@ -4,14 +4,20 @@ import (
 	"archive/zip"
 	"io"
 	"os"
-	"regexp"
 
 	log "github.com/sirupsen/logrus"
 )
 
-func (a *Archive) Unzip(outputDir string, filters []*regexp.Regexp, overwrite bool) []string {
+// Unzip extracts the Archive's contents into the given output directory using
+// the a zip file reader. If there are any filters in the given FilterSet then
+// files are only extracted if they match one of the given filters. If the
+// files to be created conflict with existing files in the outputDir then
+// extraction will stop unless the overwrite argument is set to true.
+func (a *Archive) Unzip(outputDir string, filters FilterSet, overwrite bool) []string {
 	// https://pkg.go.dev/archive/zip@go1.20.1#example-Reader
 	// Open a zip archive for reading.
+
+	// fixme: outputDir is not currently implemented!
 
 	r, err := zip.NewReader(a.FileHandle, a.FileStats.Size())
 	if err != nil {

@@ -5,12 +5,16 @@ import (
 	"io"
 	"os"
 	"path"
-	"regexp"
 
 	log "github.com/sirupsen/logrus"
 )
 
-func (a *Archive) Untar(outputDir string, filters []*regexp.Regexp, overwrite bool) []string {
+// Untar extracts the Archive's contents into the given output directory using
+// a tar file reader. If there are any filters in the given FilterSet then files
+// are only extracted if they match one of the given filters. If the files to
+// be created conflict with existing files in the outputDir then extraction
+// will stop unless the overwrite argument is set to true.
+func (a *Archive) Untar(outputDir string, filters FilterSet, overwrite bool) []string {
 	// see: https://pkg.go.dev/archive/tar#pkg-overview
 	// Open and iterate through the files in the archive.
 	var tr *tar.Reader
