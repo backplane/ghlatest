@@ -73,8 +73,10 @@ func main() {
 		Usage:                "Release locator for software on github",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
-				Name:  "verbosity",
-				Usage: "Sets the verbosity level of the log messages printed by the program",
+				Name: "verbosity",
+				// fixme: in a future release, urfave/cli has automatic textwrap support
+				Usage: "Sets the verbosity level of the log messages printed by the program, should be one of the following:\n" +
+					`"debug", "error", "fatal", "info", "panic", "trace", or "warn"`,
 				Action: func(c *cli.Context, verbosity string) error {
 					level, err := log.ParseLevel(verbosity)
 					if err != nil {
@@ -88,16 +90,18 @@ func main() {
 		Commands: []*cli.Command{
 			{
 				Name:    "list",
-				Aliases: []string{"l", "ls"},
+				Aliases: []string{"ls"},
 				Usage:   "list available releases",
 				Flags: []cli.Flag{
 					&cli.StringSliceFlag{
-						Name:  "filter, f",
-						Usage: "Filter release assets with the given regular expression",
+						Name:    "filter",
+						Aliases: []string{"f"},
+						Usage:   "Filter release assets with the given regular expression",
 					},
 					&cli.StringFlag{
-						Name:  "ifilter, i",
-						Usage: "Filter release assets with the given CASE-INSENSITIVE regular expression",
+						Name:    "ifilter",
+						Aliases: []string{"i"},
+						Usage:   "Filter release assets with the given CASE-INSENSITIVE regular expression",
 					},
 					&cli.BoolFlag{
 						Name:  "current-arch",
@@ -108,24 +112,27 @@ func main() {
 						Usage: "Filter release assets with a regex describing the current operating system",
 					},
 					&cli.BoolFlag{
-						Name:  "source, s",
-						Usage: "List/download source zip files instead of released assets",
+						Name:    "source",
+						Aliases: []string{"s"},
+						Usage:   "List/download source zip files instead of released assets",
 					},
 				},
 				Action: listHandler,
 			},
 			{
 				Name:    "download",
-				Aliases: []string{"d", "dl"},
+				Aliases: []string{"dl"},
 				Usage:   "download the latest available release",
 				Flags: []cli.Flag{
 					&cli.StringSliceFlag{
-						Name:  "filter, f",
-						Usage: "Filter release assets with the given regular expression",
+						Name:    "filter",
+						Aliases: []string{"f"},
+						Usage:   "Filter release assets with the given regular expression",
 					},
 					&cli.StringFlag{
-						Name:  "ifilter, i",
-						Usage: "Filter release assets with the given CASE-INSENSITIVE regular expression",
+						Name:    "ifilter",
+						Aliases: []string{"i"},
+						Usage:   "Filter release assets with the given CASE-INSENSITIVE regular expression",
 					},
 					&cli.BoolFlag{
 						Name:  "current-arch",
@@ -136,33 +143,39 @@ func main() {
 						Usage: "Filter release assets with a regex describing the current operating system",
 					},
 					&cli.BoolFlag{
-						Name:  "source, s",
-						Usage: "List/download source zip files instead of released assets",
+						Name:    "source",
+						Aliases: []string{"s"},
+						Usage:   "List/download source zip files instead of released assets",
 					},
 					&cli.StringFlag{
-						Name:  "outputpath, o",
-						Usage: "The name of the file to write to",
+						Name:    "outputpath",
+						Aliases: []string{"o"},
+						Usage:   "The name of the file to write to",
 					},
 					&cli.StringFlag{
-						Name:  "mode, m",
-						Value: "0755",
-						Usage: "Set the output file's protection mode (ala chmod)",
+						Name:    "mode",
+						Aliases: []string{"m"},
+						Value:   "0755",
+						Usage:   "Set the output file's protection mode (ala chmod)",
 					},
 					&cli.BoolFlag{
-						Name:  "extract, x",
-						Usage: "Unzip the downloaded file",
+						Name:    "extract",
+						Aliases: []string{"x"},
+						Usage:   "Unzip the downloaded file",
 					},
 					&cli.StringSliceFlag{
-						Name:  "keep, k",
-						Usage: "When extracting, only keep the files matching this/these regex(s)",
+						Name:    "keep",
+						Aliases: []string{"k"},
+						Usage:   "When extracting, only keep the files matching this/these regex(s)",
 					},
 					&cli.BoolFlag{
 						Name:  "overwrite",
 						Usage: "When extracting, if one of the output files already exists, overwrite it",
 					},
 					&cli.BoolFlag{
-						Name:  "rm",
-						Usage: "After extracting the archive, delete it",
+						Name:    "remove-archive",
+						Aliases: []string{"rm"},
+						Usage:   "After extracting the archive, delete it",
 					},
 				},
 				Action: downloadHandler,

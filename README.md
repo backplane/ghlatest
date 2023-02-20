@@ -1,18 +1,20 @@
 # ghlatest
 
-**NOTE**: This project is not yet ready for production use!
+This is a tool for downloading the latest release of a package from GitHub and optionally extracting the contents.
 
-This is a tool for downloading the latest release of a package from github and optionally extracting the contents.
+**NOTE**: This project is not yet ready for production use!
 
 ## Installation
 
-TBD This app is written in go and cross-compiled for various common platforms, probably downloading a binary release is the right strategy.
+This app is statically compiled for various platforms, binaries can be downloaded from the [ghlatest releases](https://github.com/backplane/ghlatest/releases) page.
 
-**Note:** Your system will need to have PKI trust roots of some kind in order to run ghlatest. One common package that provides these on unix systems is called `ca-certificates`.
+**Note:** Your system or container will need to have PKI trust roots of some kind in order to run `ghlatest`. One common package that provides these on unix systems is called `ca-certificates`.
 
 ## Usage
 
-This is the general help test from the program. Each command has additional help text available, you can access this text with a command-line like: `ghlatest list -h`
+This is the general help text produced by the program. Each command has additional help text available, you can access this text with a command-line like: `ghlatest list -h`
+
+### General Help
 
 ```
 $ ghlatest -h
@@ -26,19 +28,19 @@ VERSION:
    dev
 
 COMMANDS:
-   list, l, ls      list available releases
-   download, d, dl  download the latest available release
-   json, j          print json doc representing latest release from github api
-   help, h          Shows a list of commands or help for one command
+   list, ls      list available releases
+   download, dl  download the latest available release
+   json, j       print json doc representing latest release from github api
+   help, h       Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:
+   --verbosity value  Sets the verbosity level of the log messages printed by the program, should be one of the following:
+      "debug", "error", "fatal", "info", "panic", "trace", or "warn"
    --help, -h     show help
    --version, -v  print the version
-
-
 ```
 
-See the help test for each command, for example:
+### Download Help
 
 ```
 $ ghlatest download -h
@@ -49,186 +51,122 @@ USAGE:
    ghlatest download [command options] [arguments...]
 
 OPTIONS:
-   --filter value, -f value      Filter release assets with the given regular expression
-   --ifilter value, -i value     Filter release assets with the given CASE-INSENSITIVE regular expression
-   --current-arch                Filter release assets with a regex describing the current processor architecture
-   --current-os                  Filter release assets with a regex describing the current operating system
-   --source, -s                  List/download source zip files instead of released assets
-   --outputpath value, -o value  The name of the file to write to
-   --mode value, -m value        Set the output file's protection mode (ala chmod) (default: "0755")
-   --extract, -x                 Unzip the downloaded file
-   --keep value, -k value        When extracting, only keep the files matching this/these regex(s)
-   --overwrite-existing-files    When extracting, if one of the output files already exists, overwrite it
-   
-
+   --filter value, -f value [ --filter value, -f value ]  Filter release assets with the given regular expression
+   --ifilter value, -i value                              Filter release assets with the given CASE-INSENSITIVE regular expression
+   --current-arch                                         Filter release assets with a regex describing the current processor architecture (default: false)
+   --current-os                                           Filter release assets with a regex describing the current operating system (default: false)
+   --source, -s                                           List/download source zip files instead of released assets (default: false)
+   --outputpath value, -o value                           The name of the file to write to
+   --mode value, -m value                                 Set the output file's protection mode (ala chmod) (default: "0755")
+   --extract, -x                                          Unzip the downloaded file (default: false)
+   --keep value, -k value [ --keep value, -k value ]      When extracting, only keep the files matching this/these regex(s)
+   --overwrite                                            When extracting, if one of the output files already exists, overwrite it (default: false)
+   --remove-archive, --rm                                 After extracting the archive, delete it (default: false)
+   --help, -h                                             show help
 ```
 
-## Type sniffing
-
-### zipball
-
-`Content-Type: application/zip`
-
-see here
+### List Help
 
 ```
-> GET /kolide/launcher/legacy.zip/0.5.0 HTTP/1.1
-> Host: codeload.github.com
-> User-Agent: curl/7.54.0
-> Accept: */*
-> 
-< HTTP/1.1 200 OK
-< Transfer-Encoding: chunked
-< Access-Control-Allow-Origin: https://render.githubusercontent.com
-< Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; sandbox
-< Strict-Transport-Security: max-age=31536000
-< Vary: Authorization,Accept-Encoding
-< X-Content-Type-Options: nosniff
-< X-Frame-Options: deny
-< X-XSS-Protection: 1; mode=block
-< ETag: "6f697beacb9e530a97376c9eed45c9013564e946"
-< Content-Type: application/zip
-< Content-Disposition: attachment; filename=kolide-launcher-0.5.0-0-g6f697be.zip
-< X-Geo-Block-List: 
-< Date: Sun, 01 Jul 2018 06:47:12 GMT
-< X-GitHub-Request-Id: C61E:0A11:113231:28BA33:5B3878F0
+$ ghlatest list -h
+NAME:
+   ghlatest list - list available releases
+
+USAGE:
+   ghlatest list [command options] [arguments...]
+
+OPTIONS:
+   --filter value, -f value [ --filter value, -f value ]  Filter release assets with the given regular expression
+   --ifilter value, -i value                              Filter release assets with the given CASE-INSENSITIVE regular expression
+   --current-arch                                         Filter release assets with a regex describing the current processor architecture (default: false)
+   --current-os                                           Filter release assets with a regex describing the current operating system (default: false)
+   --source, -s                                           List/download source zip files instead of released assets (default: false)
+   --help, -h                                             show help
 ```
 
-## Download Logic
+## Example Session
 
-### Filenames
+I want to find out the what files are available in the latest release of the repo [`glvnst/snakeeyes`](https://github.com/glvnst/snakeeyes).
 
-Note that the content-disposition includes a filename!
-
-for source:
-
-`Content-Disposition: attachment; filename=kolide-launcher-0.5.0-0-g6f697be.zip`
-
-for released files:
-
-`Content-Disposition: attachment; filename=launcher_0.5.0.zip`
-
-See <https://golang.org/pkg/mime/multipart/#Part.FileName> for how to parse that correctly
-
-See <https://tools.ietf.org/html/rfc6266> for the standard "Use of the Content-Disposition Header Field in the Hypertext Transfer Protocol (HTTP)"
-
-### Extraction
-
- Download Contents                            | Action
-----------------------------------------------|-----------
- single uncompressed file direct download     | writeFileWithNameAndMode()
- single file at root of archive               | writeFileWithNameAndMode(extract())
- single dir at root of archive                | writeDirWithNameAndMode(extract())
- multiple files/dirs at root of archive       | mkdirWithNameAndMode()
-
-questions to answer at runtime
-
-is the download actually compressed? 
-
-is output path a file or a directory?
-
-do we need to create the output directory?
-
-does the zip contain one file or more than one file?
-
-new idea for extraction logic:
-
-* does the outputpath argument end in a slash?
-
-    * if so, always write files into a directory
-    * if the directory exists, write into it
-
-## Repos with unusual behavior
-
-* wikimedia/mediawiki - no releases, working with tags https://api.github.com/repos/wikimedia/mediawiki/tags
-* ether/etherpad-lite - no assets released
-
-## Github API Releases Endpoint
-
-This app uses the github API's releases endpoint:
-
-`$ curl https://api.github.com/repos/kolide/launcher/releases/latest`
-
-The result looks like this:
-
-```json
-{
-  "url": "https://api.github.com/repos/kolide/launcher/releases/9880525",
-  "assets_url": "https://api.github.com/repos/kolide/launcher/releases/9880525/assets",
-  "upload_url": "https://uploads.github.com/repos/kolide/launcher/releases/9880525/assets{?name,label}",
-  "html_url": "https://github.com/kolide/launcher/releases/tag/0.5.0",
-  "id": 9880525,
-  "node_id": "MDc6UmVsZWFzZTk4ODA1MjU=",
-  "tag_name": "0.5.0",
-  "target_commitish": "master",
-  "name": "0.5.0 ",
-  "draft": false,
-  "author": {
-    "login": "groob",
-    "id": 1526945,
-    "node_id": "MDQ6VXNlcjE1MjY5NDU=",
-    "avatar_url": "https://avatars3.githubusercontent.com/u/1526945?v=4",
-    "gravatar_id": "",
-    "url": "https://api.github.com/users/groob",
-    "html_url": "https://github.com/groob",
-    "followers_url": "https://api.github.com/users/groob/followers",
-    "following_url": "https://api.github.com/users/groob/following{/other_user}",
-    "gists_url": "https://api.github.com/users/groob/gists{/gist_id}",
-    "starred_url": "https://api.github.com/users/groob/starred{/owner}{/repo}",
-    "subscriptions_url": "https://api.github.com/users/groob/subscriptions",
-    "organizations_url": "https://api.github.com/users/groob/orgs",
-    "repos_url": "https://api.github.com/users/groob/repos",
-    "events_url": "https://api.github.com/users/groob/events{/privacy}",
-    "received_events_url": "https://api.github.com/users/groob/received_events",
-    "type": "User",
-    "site_admin": false
-  },
-  "prerelease": false,
-  "created_at": "2018-02-28T19:16:36Z",
-  "published_at": "2018-02-28T19:20:40Z",
-  "assets": [
-    {
-      "url": "https://api.github.com/repos/kolide/launcher/releases/assets/6357751",
-      "id": 6357751,
-      "node_id": "MDEyOlJlbGVhc2VBc3NldDYzNTc3NTE=",
-      "name": "launcher_0.5.0.zip",
-      "label": null,
-      "uploader": {
-        "login": "groob",
-        "id": 1526945,
-        "node_id": "MDQ6VXNlcjE1MjY5NDU=",
-        "avatar_url": "https://avatars3.githubusercontent.com/u/1526945?v=4",
-        "gravatar_id": "",
-        "url": "https://api.github.com/users/groob",
-        "html_url": "https://github.com/groob",
-        "followers_url": "https://api.github.com/users/groob/followers",
-        "following_url": "https://api.github.com/users/groob/following{/other_user}",
-        "gists_url": "https://api.github.com/users/groob/gists{/gist_id}",
-        "starred_url": "https://api.github.com/users/groob/starred{/owner}{/repo}",
-        "subscriptions_url": "https://api.github.com/users/groob/subscriptions",
-        "organizations_url": "https://api.github.com/users/groob/orgs",
-        "repos_url": "https://api.github.com/users/groob/repos",
-        "events_url": "https://api.github.com/users/groob/events{/privacy}",
-        "received_events_url": "https://api.github.com/users/groob/received_events",
-        "type": "User",
-        "site_admin": false
-      },
-      "content_type": "application/zip",
-      "state": "uploaded",
-      "size": 24866298,
-      "download_count": 658,
-      "created_at": "2018-02-28T19:21:42Z",
-      "updated_at": "2018-02-28T19:21:50Z",
-      "browser_download_url": "https://github.com/kolide/launcher/releases/download/0.5.0/launcher_0.5.0.zip"
-    }
-  ],
-  "tarball_url": "https://api.github.com/repos/kolide/launcher/tarball/0.5.0",
-  "zipball_url": "https://api.github.com/repos/kolide/launcher/zipball/0.5.0",
-  "body": "* Add a local debug server. (#187)\r\n--TRUNCATED FOR README DOCS --"
-}
+```
+$ ghlatest ls glvnst/snakeeyes
+https://github.com/glvnst/snakeeyes/releases/download/v0.2.3/checksums.txt
+https://github.com/glvnst/snakeeyes/releases/download/v0.2.3/snakeeyes_0.2.3_dragonfly_amd64.tar.gz
+https://github.com/glvnst/snakeeyes/releases/download/v0.2.3/snakeeyes_0.2.3_freebsd_amd64.tar.gz
+https://github.com/glvnst/snakeeyes/releases/download/v0.2.3/snakeeyes_0.2.3_freebsd_armv7.tar.gz
+https://github.com/glvnst/snakeeyes/releases/download/v0.2.3/snakeeyes_0.2.3_linux_amd64.tar.gz
+https://github.com/glvnst/snakeeyes/releases/download/v0.2.3/snakeeyes_0.2.3_linux_arm64.tar.gz
+https://github.com/glvnst/snakeeyes/releases/download/v0.2.3/snakeeyes_0.2.3_linux_armv7.tar.gz
+https://github.com/glvnst/snakeeyes/releases/download/v0.2.3/snakeeyes_0.2.3_macOS_all.tar.gz
+https://github.com/glvnst/snakeeyes/releases/download/v0.2.3/snakeeyes_0.2.3_macOS_amd64.tar.gz
+https://github.com/glvnst/snakeeyes/releases/download/v0.2.3/snakeeyes_0.2.3_netbsd_amd64.tar.gz
+https://github.com/glvnst/snakeeyes/releases/download/v0.2.3/snakeeyes_0.2.3_netbsd_armv7.tar.gz
+https://github.com/glvnst/snakeeyes/releases/download/v0.2.3/snakeeyes_0.2.3_openbsd_amd64.tar.gz
+https://github.com/glvnst/snakeeyes/releases/download/v0.2.3/snakeeyes_0.2.3_openbsd_arm64.tar.gz
+https://github.com/glvnst/snakeeyes/releases/download/v0.2.3/snakeeyes_0.2.3_openbsd_armv7.tar.gz
+https://github.com/glvnst/snakeeyes/releases/download/v0.2.3/snakeeyes_0.2.3_windows_amd64.zip
+https://github.com/glvnst/snakeeyes/releases/download/v0.2.3/snakeeyes_0.2.3_windows_armv7.zip
 ```
 
-## Resources
+I only care about the ones for my current operating system (linux) so I'll filter for those:
 
-* <https://stackoverflow.com/a/50540591> - stackoverflow answer pointing to github api
-* <https://developer.github.com/v3/repos/releases/#get-the-latest-release>
+```
+$ ghlatest ls --current-os glvnst/snakeeyes
+https://github.com/glvnst/snakeeyes/releases/download/v0.2.3/snakeeyes_0.2.3_linux_amd64.tar.gz
+https://github.com/glvnst/snakeeyes/releases/download/v0.2.3/snakeeyes_0.2.3_linux_arm64.tar.gz
+https://github.com/glvnst/snakeeyes/releases/download/v0.2.3/snakeeyes_0.2.3_linux_armv7.tar.gz
+```
+
+I also only want the release for my current processor architecture so I apply that filter as well:
+
+```
+$ ghlatest ls --current-os --current-arch glvnst/snakeeyes
+https://github.com/glvnst/snakeeyes/releases/download/v0.2.3/snakeeyes_0.2.3_linux_arm64.tar.gz
+```
+
+Now that I have that down to one URL I can change `ls` to `dl` to download the release, I also want to extract it, so I'll add the `--extract flag`:
+
+```
+$ ghlatest dl --current-os --current-arch --extract glvnst/snakeeyes
+INFO[0001] wrote 825399 bytes to snakeeyes_0.2.3_linux_arm64.tar.gz 
+INFO[0001] extracting (tgz) snakeeyes_0.2.3_linux_arm64.tar.gz 
+INFO[0001] created COPYING mode: 0644                   
+INFO[0001] created README.md mode: 0644                 
+INFO[0001] created snakeeyes mode: 0755                 
+INFO[0001] extraction complete
+$ ls -al
+total 3156
+drwxr-xr-x    6 user     user           192 Feb 20 09:23 .
+drwxr-xr-x   21 user     user           672 Feb 20 09:23 ..
+-rw-r--r--    1 user     user         34523 Feb 20 09:23 COPYING
+-rw-r--r--    1 user     user          7080 Feb 20 09:23 README.md
+-rwxr-xr-x    1 user     user       2359296 Feb 20 09:23 snakeeyes
+-rwxr-xr-x    1 user     user        825399 Feb 20 09:23 snakeeyes_0.2.3_linux_arm64.tar.gz
+```
+
+That produced a lot of files that I don't want at the moment. So I'll add a `--keep` filter to only extract the binary, and I'll also add `--rm` to remove the downloaded archive after I'm done with it.
+
+```
+$ ghlatest dl --current-os --current-arch --extract --rm --keep snakeeyes glvnst/snakeeyes
+INFO[0001] wrote 825399 bytes to snakeeyes_0.2.3_linux_arm64.tar.gz 
+INFO[0001] extracting (tgz) snakeeyes_0.2.3_linux_arm64.tar.gz 
+INFO[0001] created snakeeyes mode: 0755                 
+INFO[0001] extraction complete                          
+INFO[0001] removed "snakeeyes_0.2.3_linux_arm64.tar.gz" after extraction
+$ $ ls -al
+total 2304
+drwxr-xr-x    3 user     user            96 Feb 20 09:26 .
+drwxr-xr-x   21 user     user           672 Feb 20 09:23 ..
+-rwxr-xr-x    1 user     user       2359296 Feb 20 09:26 snakeeyes
+```
+
+Now we have a command which produces the file that I want from the latest release of the given GitHub repo, it can be used in scripting contexts or in container infrastructure, such as this `Dockerfile`:
+
+```Dockerfile
+FROM backplane/ghlatest as downloader
+RUN ghlatest dl --current-os --current-arch --extract --rm --keep snakeeyes glvnst/snakeeyes
+
+FROM alpine:3
+COPY --from=downloader /work/snakeeyes /bin/
+ENTRYPOINT ["/bin/snakeeyes"]
+```

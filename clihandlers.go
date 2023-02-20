@@ -142,15 +142,15 @@ func downloadHandler(c *cli.Context) error {
 	}
 
 	// cleanup the download
-	if c.Bool("rm") {
+	if c.Bool("remove-archive") {
 		if !c.Bool("extract") {
-			log.Fatalf("The --rm option doesn't make sense unless you --extract")
+			log.Fatalf("the remove-archive option doesn't make sense unless you also specify extract")
 		}
 
 		if err = os.Remove(outputpath); err != nil {
-			log.Fatalf("failed to --rm the downloaded archive \"%s\", error: %s", outputpath, err)
+			log.Fatalf("failed to remove the downloaded archive \"%s\", error: %s", outputpath, err)
 		}
-		log.Infof("Removed \"%s\" after extraction", outputpath)
+		log.Infof("removed \"%s\" after extraction", outputpath)
 	}
 
 	return nil
