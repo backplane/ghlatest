@@ -3,24 +3,27 @@ package extract
 import (
 	"archive/tar"
 	"io"
-	"log"
 	"os"
 	"path"
-	"regexp"
 
-	"github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 )
 
-func (a *Archive) Untar(outputDir string, filters []*regexp.Regexp, overwrite bool) []string {
+// Untar extracts the Archive's contents into the given output directory using
+// a tar file reader. If there are any filters in the given FilterSet then files
+// are only extracted if they match one of the given filters. If the files to
+// be created conflict with existing files in the outputDir then extraction
+// will stop unless the overwrite argument is set to true.
+func (a *Archive) Untar(outputDir string, filters FilterSet, overwrite bool) []string {
 	// see: https://pkg.go.dev/archive/tar#pkg-overview
 	// Open and iterate through the files in the archive.
 	var tr *tar.Reader
 	if a.StreamHandle != nil {
 		// StreamHandle would be available if we're decompressing as well
-		logrus.Info("Using StreamHandle to untar")
+		log.Debug("untar selected StreamHandle")
 		tr = tar.NewReader(a.StreamHandle)
 	} else {
-		logrus.Info("Using FileHandle to untar")
+		log.Debug("untar selected FileHandle")
 		tr = tar.NewReader(a.FileHandle)
 	}
 
@@ -36,7 +39,7 @@ func (a *Archive) Untar(outputDir string, filters []*regexp.Regexp, overwrite bo
 			break // End of archive
 		}
 		if err != nil {
-			logrus.Fatal(err)
+			log.Fatal(err)
 		}
 
 		filePath := NormalizeFilePath(f.Name)
@@ -56,7 +59,7 @@ func (a *Archive) Untar(outputDir string, filters []*regexp.Regexp, overwrite bo
 
 		permissions := f.FileInfo().Mode().Perm()
 		if f.FileInfo().IsDir() {
-			logrus.Infof("creating directory %s mode: %#o", filePath, permissions)
+			log.Infof("creating directory %s mode: %#o", filePath, permissions)
 			err := os.MkdirAll(filePath, permissions)
 			if err != nil {
 				log.Fatal(err)
@@ -71,12 +74,7 @@ func (a *Archive) Untar(outputDir string, filters []*regexp.Regexp, overwrite bo
 			}
 		}
 
-		openFlags := os.O_WRONLY | os.O_CREATE
-		if overwrite {
-			openFlags |= os.O_EXCL
-		}
-
-		outputFile, err := os.OpenFile(filePath, openFlags, permissions)
+		outputFile, err := NewFile(filePath, permissions, overwrite)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -86,7 +84,7 @@ func (a *Archive) Untar(outputDir string, filters []*regexp.Regexp, overwrite bo
 			log.Fatal(err)
 		}
 		outputFile.Close()
-		logrus.Infof("created %s mode: %#o", filePath, permissions)
+		log.Infof("created %s mode: %#o", filePath, permissions)
 		extractedFiles = append(extractedFiles, filePath)
 
 	}

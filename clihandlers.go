@@ -4,15 +4,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/backplane/ghlatest/extract"
-	"github.com/sirupsen/logrus"
-	"github.com/urfave/cli"
+	log "github.com/sirupsen/logrus"
+	cli "github.com/urfave/cli/v2"
 )
 
 func getFilterList(c *cli.Context) []*regexp.Regexp {
@@ -59,10 +58,8 @@ func jsonHandler(c *cli.Context) error {
 
 	// indent the json data
 	var idoc bytes.Buffer
-	err = json.Indent(&idoc, doc, "", "  ")
-	if err != nil {
-		logrus.Println("JSON indenting error: ", err)
-		return err
+	if err := json.Indent(&idoc, doc, "", "  "); err != nil {
+		return fmt.Errorf("JSON indenting error: %s", err)
 	}
 
 	// write the json to stdout
@@ -85,7 +82,7 @@ func listHandler(c *cli.Context) error {
 	}
 
 	for _, assetURL := range latestReleasedAssets(owner, repo, getFilterList(c)) {
-		fmt.Printf("%s\n", assetURL)
+		fmt.Println(assetURL)
 	}
 
 	return nil
@@ -106,7 +103,7 @@ func downloadHandler(c *cli.Context) error {
 	// determine the assetsURL
 	assets := latestReleasedAssets(owner, repo, getFilterList(c))
 	if len(assets) != 1 {
-		logrus.Fatalf("found %d matching downloads, use a -f flag to get the match count down to exactly 1\n", len(assets))
+		log.Fatalf("found %d matching downloads, use a -f flag to get the match count down to exactly 1\n", len(assets))
 	}
 	assetURL := assets[0]
 
@@ -138,21 +135,22 @@ func downloadHandler(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("wrote to '%s'\n", outputpath)
 
+	// unpack the download
 	if c.Bool("extract") {
 		extract.ExtractFile(outputpath, c.StringSlice("keep"), c.Bool("overwrite"))
 	}
 
-	if c.Bool("rm") {
+	// cleanup the download
+	if c.Bool("remove-archive") {
 		if !c.Bool("extract") {
-			log.Fatalf("The --rm option doesn't make sense unless you --extract")
+			log.Fatalf("the remove-archive option doesn't make sense unless you also specify extract")
 		}
 
 		if err = os.Remove(outputpath); err != nil {
-			logrus.Fatalf("failed to --rm the downloaded archive \"%s\", error: %s", outputpath, err)
+			log.Fatalf("failed to remove the downloaded archive \"%s\", error: %s", outputpath, err)
 		}
-		logrus.Infof("Removed \"%s\" after extraction", outputpath)
+		log.Infof("removed \"%s\" after extraction", outputpath)
 	}
 
 	return nil

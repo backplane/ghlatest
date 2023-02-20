@@ -1,94 +1,67 @@
+// Extract implements the extraction of files from various file archive or compression formats.
+//
+// The entrypoint for the package is ExtractFile which is meant to call the
+// appropriate handlers for the file at the given path based on the filename
+// extensions. OpenArchive may also be used. The resulting Archive struct has
+// methods which handle common archive types.
 package extract
 
 import (
 	"fmt"
-	"io"
-	"io/fs"
-	"os"
-	"path/filepath"
 	"regexp"
-	"strings"
 
-	"github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 )
 
-type Archive struct {
-	Path         string
-	PathNoExt    string
-	FileHandle   *os.File
-	FileStats    fs.FileInfo
-	StreamHandle io.ReadCloser
-}
-
+// FilterSet contains compiled regular expressions which identify files to be
+// included during an extraction process. If the FilterSet is empty all files
+// will be extracted.
 type FilterSet []*regexp.Regexp
 
-type HandlerSpec struct {
+// HandlerFunc is the signature of functions which are called by ExtractFile to
+// process an Archive. outputPath is the path to the directory where files
+// should be extracted. filters (if non-empty) contain regular expressions
+// which select files to be included in the output. When overwrite is true
+// existing files may be overwritten by the extraction process (instead of
+// halting the program)
+type handlerFunc func(a *Archive, outputPath string, filters FilterSet, overwrite bool) error
+
+// ExtHandler is used by ExtractFile to define a regexp matcher for filenames
+// and which function can handle extraction for that type of file.
+type extHandler struct {
 	Matcher *regexp.Regexp
-	Handler func(a *Archive, outputPath string, filters FilterSet, overwrite bool) error
+	Handler handlerFunc
 }
 
-type HandlersList []HandlerSpec
-
-var Handlers HandlersList = HandlersList{
-	HandlerSpec{regexp.MustCompile(`(?i)\.7z$`), handle7z},
-	HandlerSpec{regexp.MustCompile(`(?i)\.tar$`), handleTar},
-	HandlerSpec{regexp.MustCompile(`(?i)\.zip$`), handleZip},
-	HandlerSpec{regexp.MustCompile(`(?i)\.(tbz2|tar\.bz2)$`), handleTbz2},
-	HandlerSpec{regexp.MustCompile(`(?i)\.(tgz|tar\.gz)$`), handleTgz},
-	HandlerSpec{regexp.MustCompile(`(?i)\.(txz|tar\.xz)$`), handleTxz},
-	HandlerSpec{regexp.MustCompile(`(?i)\.bz2$`), handleBz2},
-	HandlerSpec{regexp.MustCompile(`(?i)\.gz$`), handleGz},
-	HandlerSpec{regexp.MustCompile(`(?i)\.xz$`), handleXz},
+var extHandlers = []extHandler{
+	{regexp.MustCompile(`(?i)\.7z$`), handle7z},
+	{regexp.MustCompile(`(?i)\.tar$`), handleTar},
+	{regexp.MustCompile(`(?i)\.zip$`), handleZip},
+	{regexp.MustCompile(`(?i)\.(tbz2|tar\.bz2)$`), handleTbz2},
+	{regexp.MustCompile(`(?i)\.(tgz|tar\.gz)$`), handleTgz},
+	{regexp.MustCompile(`(?i)\.(txz|tar\.xz)$`), handleTxz},
+	{regexp.MustCompile(`(?i)\.bz2$`), handleBz2},
+	{regexp.MustCompile(`(?i)\.gz$`), handleGz},
+	{regexp.MustCompile(`(?i)\.xz$`), handleXz},
 }
 
-func OpenArchive(filePath string) (*Archive, error) {
-	f, err := os.OpenFile(filePath, os.O_RDONLY, 0600)
+// ExtractFile extracts the contents of the file archive at the given filePath.
+// The filterStrings argument accepts a slice of strings (which will be compiled
+// into [regexp.Regexp] objects) to filter what will be extracted from the file
+// archive.
+func ExtractFile(filePath string, filterStrings []string, overwrite bool) error {
+	filters, err := compileFilters(filterStrings)
 	if err != nil {
-		return nil, err
-	}
-	stats, err := f.Stat()
-	if err != nil {
-		return nil, err
-	}
-	return &Archive{
-		Path:         filePath,
-		PathNoExt:    "",
-		FileHandle:   f,
-		FileStats:    stats,
-		StreamHandle: nil,
-	}, nil
-}
-
-func (a *Archive) Close() {
-	if a.StreamHandle != nil {
-		if err := a.StreamHandle.Close(); err != nil {
-			logrus.Fatalln(err)
-		}
-	}
-	if a.FileHandle != nil {
-		if err := a.FileHandle.Close(); err != nil {
-			logrus.Fatalln(err)
-		}
-	}
-}
-
-func ExtractFile(filePath string, rawFilters []string, overwrite bool) error {
-	filters := make(FilterSet, 0)
-	for _, filterStr := range rawFilters {
-		filter, err := regexp.Compile(filterStr)
-		if err != nil {
-			logrus.Fatalf("failed to compile --keep filter: \"%s\" - error: %s", filterStr, err)
-		}
-		filters = append(filters, filter)
+		log.Fatalf("failed to compile --keep filters, error: %s", err)
 	}
 
 	a, err := OpenArchive(filePath)
 	if err != nil {
-		logrus.Fatalln(err)
+		log.Fatalln(err)
 	}
 	defer a.Close()
 
-	for _, h := range Handlers {
+	for _, h := range extHandlers {
 		if !h.Matcher.MatchString(filePath) {
 			continue
 		}
@@ -96,43 +69,21 @@ func ExtractFile(filePath string, rawFilters []string, overwrite bool) error {
 		// need to support different handlers for example.tar.gz and example.gz
 		a.PathNoExt = h.Matcher.ReplaceAllString(filePath, "")
 		if err := h.Handler(a, ".", filters, overwrite); err != nil {
-			logrus.Fatalf("failed to handle extraction for %s; error: %s", filePath, err)
+			log.Fatalf("failed to handle extraction for %s; error: %s", filePath, err)
 		}
-		logrus.Info("extraction complete")
+		log.Info("extraction complete")
 		return nil
 	}
 
 	return fmt.Errorf("Don't know how to extract %s (no handler)", filePath)
 }
 
-func NormalizeFilePath(path string) string {
-	driveLabels := regexp.MustCompile(`^[A-Z]:\\*`)
-	onlyDotsAndSpaces := regexp.MustCompile(`^[.\s]*$`)
-	validatedPathParts := make([]string, 0)
-
-	normalized := strings.TrimSpace(path)
-	normalized = driveLabels.ReplaceAllLiteralString(normalized, ``)
-	normalized = strings.ReplaceAll(normalized, `\`, `/`)
-	normalized = filepath.Clean(normalized)
-	for _, part := range strings.Split(normalized, `/`) {
-		trimmed := strings.TrimSpace(part)
-		if onlyDotsAndSpaces.MatchString(trimmed) {
-			continue
-		}
-		validatedPathParts = append(validatedPathParts, trimmed)
-	}
-	normalized = strings.Join(validatedPathParts, "/")
-	normalized = filepath.Clean(normalized)
-
-	return normalized
-}
-
 func handle7z(a *Archive, outputPath string, filters FilterSet, overwrite bool) error {
-	return fmt.Errorf("Cannot extract %s -- 7z extraction not yet unimplemented", a.Path)
+	return fmt.Errorf("Cannot extract %s -- 7z extraction not yet implemented", a.Path)
 }
 
 func handleTar(a *Archive, outputPath string, filters FilterSet, overwrite bool) error {
-	logrus.Infof("extracting (tar) %s", a.Path)
+	log.Infof("extracting (tar) %s", a.Path)
 	extractedFiles := a.Untar(outputPath, filters, overwrite)
 	if len(extractedFiles) > 0 {
 		return nil
@@ -141,7 +92,7 @@ func handleTar(a *Archive, outputPath string, filters FilterSet, overwrite bool)
 }
 
 func handleZip(a *Archive, outputPath string, filters FilterSet, overwrite bool) error {
-	logrus.Infof("extracting (zip) %s", a.Path)
+	log.Infof("extracting (zip) %s", a.Path)
 	extractedFiles := a.Unzip(outputPath, filters, overwrite)
 	if len(extractedFiles) > 0 {
 		return nil
@@ -150,7 +101,7 @@ func handleZip(a *Archive, outputPath string, filters FilterSet, overwrite bool)
 }
 
 func handleTbz2(a *Archive, outputPath string, filters FilterSet, overwrite bool) error {
-	logrus.Infof("extracting (tbz2) %s", a.Path)
+	log.Infof("extracting (tbz2) %s", a.Path)
 	if err := a.Bunzip2(); err != nil {
 		return fmt.Errorf("uncompressing (bzip2) %s failed; error: %s", a.Path, err)
 	}
@@ -162,7 +113,7 @@ func handleTbz2(a *Archive, outputPath string, filters FilterSet, overwrite bool
 }
 
 func handleTgz(a *Archive, outputPath string, filters FilterSet, overwrite bool) error {
-	logrus.Infof("extracting (tgz) %s", a.Path)
+	log.Infof("extracting (tgz) %s", a.Path)
 	if err := a.Gunzip(); err != nil {
 		return fmt.Errorf("uncompressing (gzip) %s failed; error: %s", a.Path, err)
 	}
@@ -174,7 +125,7 @@ func handleTgz(a *Archive, outputPath string, filters FilterSet, overwrite bool)
 }
 
 func handleTxz(a *Archive, outputPath string, filters FilterSet, overwrite bool) error {
-	logrus.Infof("extracting (txz) %s", a.Path)
+	log.Infof("extracting (txz) %s", a.Path)
 	if err := a.Unxz(); err != nil {
 		return fmt.Errorf("uncompressing (xz) %s failed; error: %s", a.Path, err)
 	}
@@ -186,7 +137,7 @@ func handleTxz(a *Archive, outputPath string, filters FilterSet, overwrite bool)
 }
 
 func handleBz2(a *Archive, outputPath string, filters FilterSet, overwrite bool) error {
-	logrus.Infof("extracting (bz2) %s", a.Path)
+	log.Infof("extracting (bz2) %s", a.Path)
 	if err := a.Bunzip2(); err != nil {
 		return fmt.Errorf("uncompressing (bz2) %s failed; error: %s", a.Path, err)
 	}
@@ -197,7 +148,7 @@ func handleBz2(a *Archive, outputPath string, filters FilterSet, overwrite bool)
 }
 
 func handleGz(a *Archive, outputPath string, filters FilterSet, overwrite bool) error {
-	logrus.Infof("extracting (gz) %s", a.Path)
+	log.Infof("extracting (gz) %s", a.Path)
 	if err := a.Gunzip(); err != nil {
 		return fmt.Errorf("uncompressing (gz) %s failed; error: %s", a.Path, err)
 	}
@@ -208,7 +159,7 @@ func handleGz(a *Archive, outputPath string, filters FilterSet, overwrite bool) 
 }
 
 func handleXz(a *Archive, outputPath string, filters FilterSet, overwrite bool) error {
-	logrus.Infof("extracting (xz) %s", a.Path)
+	log.Infof("extracting (xz) %s", a.Path)
 	if err := a.Unxz(); err != nil {
 		return fmt.Errorf("uncompressing (xz) %s failed; error: %s", a.Path, err)
 	}

@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"regexp"
 
-	"github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 )
 
 func matchingMap(needle *regexp.Regexp, haystack string) (map[string]string, bool) {
@@ -34,13 +34,13 @@ func httpContents(url string) (contents []byte, err error) {
 
 	resp, err := http.Get(url)
 	if err != nil {
-		logrus.Fatal(err)
+		log.Fatal(err)
 	}
 	defer resp.Body.Close()
 
 	contents, err = ioutil.ReadAll(resp.Body)
 	if err != nil {
-		logrus.Fatal(err)
+		log.Fatal(err)
 	}
 
 	return contents, nil
