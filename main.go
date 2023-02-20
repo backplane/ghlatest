@@ -187,6 +187,39 @@ func main() {
 				Flags:   []cli.Flag{},
 				Action:  jsonHandler,
 			},
+			{
+				Name:    "extract",
+				Aliases: []string{"x"},
+				Usage:   "extract the given files",
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:    "outputpath",
+						Aliases: []string{"o"},
+						Usage:   "The name of the file to write to",
+					},
+					&cli.StringFlag{
+						Name:    "mode",
+						Aliases: []string{"m"},
+						Value:   "0755",
+						Usage:   "Set the output file's protection mode (ala chmod)",
+					},
+					&cli.StringSliceFlag{
+						Name:    "keep",
+						Aliases: []string{"k"},
+						Usage:   "When extracting, only keep the files matching this/these regex(s)",
+					},
+					&cli.BoolFlag{
+						Name:  "overwrite",
+						Usage: "When extracting, if one of the output files already exists, overwrite it",
+					},
+					&cli.BoolFlag{
+						Name:    "remove-archive",
+						Aliases: []string{"rm"},
+						Usage:   "After extracting the archive, delete it",
+					},
+				},
+				Action: extractHandler,
+			},
 		},
 	}
 
