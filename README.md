@@ -58,7 +58,7 @@ OPTIONS:
    --source, -s                                           List/download source zip files instead of released assets (default: false)
    --outputpath value, -o value                           The name of the file to write to
    --mode value, -m value                                 Set the output file's protection mode (ala chmod) (default: "0755")
-   --extract, -x                                          Unzip the downloaded file (default: false)
+   --extract, -x                                          Extract files from the downloaded archive (supports zip, gzip, bzip2, xz, and tar formats) (default: false)
    --keep value, -k value [ --keep value, -k value ]      When extracting, only keep the files matching this/these regex(s)
    --overwrite                                            When extracting, if one of the output files already exists, overwrite it (default: false)
    --remove-archive, --rm                                 After extracting the archive, delete it (default: false)
