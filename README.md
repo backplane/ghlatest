@@ -142,7 +142,7 @@ $ ghlatest ls --current-os --current-arch glvnst/snakeeyes
 https://github.com/glvnst/snakeeyes/releases/download/v0.2.3/snakeeyes_0.2.3_linux_arm64.tar.gz
 ```
 
-Now that I have that down to one URL I can change `ls` to `dl` to download the release, I also want to extract it, so I'll add the `--extract flag`:
+Now that I have that down to just a single URL I can change `ls` to `dl` to download the release, I also want to extract it, so I'll add the `--extract` flag:
 
 ```
 $ ghlatest dl --current-os --current-arch --extract glvnst/snakeeyes
@@ -162,10 +162,10 @@ drwxr-xr-x   21 user     user           672 Feb 20 09:23 ..
 -rwxr-xr-x    1 user     user        825399 Feb 20 09:23 snakeeyes_0.2.3_linux_arm64.tar.gz
 ```
 
-That produced a lot of files that I don't want at the moment. So I'll add a `--keep` filter to only extract the binary, and I'll also add `--rm` to remove the downloaded archive after I'm done with it.
+That produced a lot of files that I don't want at the moment. So I'll add a `--keep snakeeyes` filter to only extract that one binary, and I'll also add `--rm` to remove the downloaded archive after I'm done with it.
 
 ```
-$ ghlatest dl --current-os --current-arch --extract --rm --keep snakeeyes glvnst/snakeeyes
+$ ghlatest dl --current-os --current-arch --extract --keep snakeeyes --rm glvnst/snakeeyes
 INFO[0001] wrote 825399 bytes to snakeeyes_0.2.3_linux_arm64.tar.gz 
 INFO[0001] extracting (tgz) snakeeyes_0.2.3_linux_arm64.tar.gz 
 INFO[0001] created snakeeyes mode: 0755                 
@@ -182,9 +182,9 @@ Now we have a command which produces the file that I want from the latest releas
 
 ```Dockerfile
 FROM backplane/ghlatest as downloader
-RUN ghlatest dl --current-os --current-arch --extract --rm --keep snakeeyes glvnst/snakeeyes
+RUN ghlatest dl --current-os --current-arch --extract --keep snakeeyes --rm glvnst/snakeeyes
 
-FROM alpine:3
-COPY --from=downloader /work/snakeeyes /bin/
-ENTRYPOINT ["/bin/snakeeyes"]
+FROM scratch
+COPY --from=downloader /work/snakeeyes /
+ENTRYPOINT ["/snakeeyes"]
 ```
