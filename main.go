@@ -63,6 +63,11 @@ func init() {
 	cli.VersionPrinter = func(c *cli.Context) {
 		fmt.Printf("version %s, commit %s, built at %s by %s\n", version, commit, date, builtBy)
 	}
+
+	log.SetFormatter(&log.TextFormatter{
+		DisableLevelTruncation: true,
+		TimestampFormat:        "2006-01-02T15:04:05Z07:00",
+		FullTimestamp:          true})
 }
 
 func main() {
