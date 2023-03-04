@@ -4,7 +4,6 @@ import (
 	"archive/tar"
 	"io"
 	"os"
-	"path"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -43,7 +42,6 @@ func (a *Archive) Untar(outputDir string, filters FilterSet, overwrite bool) []s
 		}
 
 		filePath := NormalizeFilePath(f.Name)
-		fileDir, _ := path.Split(filePath)
 		if filtering {
 			var include_file bool = false
 			for _, filter := range filters {
@@ -66,12 +64,6 @@ func (a *Archive) Untar(outputDir string, filters FilterSet, overwrite bool) []s
 			}
 			extractedFiles = append(extractedFiles, filePath)
 			continue
-		}
-		if fileDir != "" {
-			err := os.MkdirAll(filePath, permissions)
-			if err != nil {
-				log.Fatal(err)
-			}
 		}
 
 		outputFile, err := NewFile(filePath, permissions, overwrite)
