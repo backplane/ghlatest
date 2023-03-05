@@ -8,7 +8,7 @@ ghlatest: *.go */*.go
 
 lint:
 	@echo '==> Linting'
-	go fmt
+	! gofmt -d -e . | grep .
 	go vet
 	staticcheck
 
