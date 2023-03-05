@@ -103,7 +103,7 @@ func main() {
 						Aliases: []string{"f"},
 						Usage:   "Filter release assets with the given regular expression",
 					},
-					&cli.StringFlag{
+					&cli.StringSliceFlag{
 						Name:    "ifilter",
 						Aliases: []string{"i"},
 						Usage:   "Filter release assets with the given CASE-INSENSITIVE regular expression",
@@ -134,7 +134,7 @@ func main() {
 						Aliases: []string{"f"},
 						Usage:   "Filter release assets with the given regular expression",
 					},
-					&cli.StringFlag{
+					&cli.StringSliceFlag{
 						Name:    "ifilter",
 						Aliases: []string{"i"},
 						Usage:   "Filter release assets with the given CASE-INSENSITIVE regular expression",

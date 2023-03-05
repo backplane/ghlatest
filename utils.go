@@ -1,7 +1,7 @@
 package main
 
 import (
-	"io/ioutil"
+	"io"
 	"net/http"
 	"regexp"
 
@@ -38,7 +38,7 @@ func httpContents(url string) (contents []byte, err error) {
 	}
 	defer resp.Body.Close()
 
-	contents, err = ioutil.ReadAll(resp.Body)
+	contents, err = io.ReadAll(resp.Body)
 	if err != nil {
 		log.Fatal(err)
 	}

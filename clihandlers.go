@@ -15,15 +15,14 @@ import (
 )
 
 func getFilterList(c *cli.Context) []*regexp.Regexp {
-	filters := make([]*regexp.Regexp, 0)
-	var filterString string
+	filters := make([]*regexp.Regexp, 0, 2)
 
 	// process the --filter and --ifilter argument
-	for _, filterString = range c.StringSlice("filter") {
+	for _, filterString := range c.StringSlice("filter") {
 		filters = append(filters, regexp.MustCompile(filterString))
 	}
-	for _, filterString = range c.StringSlice("ifilter") {
-		filters = append(filters, regexp.MustCompile(`(?i)`+c.String(filterString)))
+	for _, filterString := range c.StringSlice("ifilter") {
+		filters = append(filters, regexp.MustCompile("(?i)"+filterString))
 	}
 
 	// process the --current-arch flag
