@@ -36,7 +36,7 @@ archives:
       {{- if eq .Os "darwin" }}macos
       {{- else }}{{ .Os }}
       {{- end }}_
-      {{ .Arch }}"
+      {{ .Arch }}
 checksum:
   name_template: 'checksums.txt'
 changelog:
