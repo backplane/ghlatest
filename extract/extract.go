@@ -6,51 +6,71 @@
 // methods which handle common archive types.
 package extract
 
+// this file is an alternative implementation of the code in extract
+
 import (
 	"fmt"
 	"regexp"
 
+	"github.com/backplane/ghlatest/util"
 	log "github.com/sirupsen/logrus"
 )
 
-// FilterSet contains compiled regular expressions which identify files to be
-// included during an extraction process. If the FilterSet is empty all files
-// will be extracted.
-type FilterSet []*regexp.Regexp
+// aop is an Archive operation
+type aop int
 
-// HandlerFunc is the signature of functions which are called by ExtractFile to
-// process an Archive. outputPath is the path to the directory where files
-// should be extracted. filters (if non-empty) contain regular expressions
-// which select files to be included in the output. When overwrite is true
-// existing files may be overwritten by the extraction process (instead of
-// halting the program)
-type handlerFunc func(a *Archive, outputPath string, filters FilterSet, overwrite bool) error
+// <100 = decompressors that don't write files
+const (
+	opUnbzip2 aop = iota
+	opUngzip
+	opUnxz
+)
 
-// ExtHandler is used by ExtractFile to define a regexp matcher for filenames
-// and which function can handle extraction for that type of file.
-type extHandler struct {
-	Matcher *regexp.Regexp
-	Handler handlerFunc
+// >= 100 = single-file writers
+const (
+	opWriteSingleton aop = iota + 100
+)
+
+// >= 200 = multi-file writers
+const (
+	opUn7z aop = iota + 200
+	opUntar
+	opUnzip
+)
+
+var archiveOpNames = map[aop]string{
+	opUn7z:           "7z",
+	opUnbzip2:        "bzip2",
+	opUngzip:         "gzip",
+	opUntar:          "tar",
+	opUnxz:           "xz",
+	opUnzip:          "zip",
+	opWriteSingleton: "file",
 }
 
-var extHandlers = []extHandler{
-	{regexp.MustCompile(`(?i)\.7z$`), handle7z},
-	{regexp.MustCompile(`(?i)\.tar$`), handleTar},
-	{regexp.MustCompile(`(?i)\.zip$`), handleZip},
-	{regexp.MustCompile(`(?i)\.(tbz2|tar\.bz2)$`), handleTbz2},
-	{regexp.MustCompile(`(?i)\.(tgz|tar\.gz)$`), handleTgz},
-	{regexp.MustCompile(`(?i)\.(txz|tar\.xz)$`), handleTxz},
-	{regexp.MustCompile(`(?i)\.bz2$`), handleBz2},
-	{regexp.MustCompile(`(?i)\.gz$`), handleGz},
-	{regexp.MustCompile(`(?i)\.xz$`), handleXz},
+type filenameStrategy struct {
+	FilenameRegexp *regexp.Regexp
+	Operations     []aop
 }
 
-// ExtractFile extracts the contents of the file archive at the given filePath.
+var strategies = []filenameStrategy{
+	{regexp.MustCompile(`(?i)\.7z$`), []aop{opUn7z}},
+	{regexp.MustCompile(`(?i)\.tar$`), []aop{opUntar}},
+	{regexp.MustCompile(`(?i)\.zip$`), []aop{opUnzip}},
+	{regexp.MustCompile(`(?i)\.(tbz2|tar\.bz2)$`), []aop{opUnbzip2, opUntar}},
+	{regexp.MustCompile(`(?i)\.(tgz|tar\.gz)$`), []aop{opUngzip, opUntar}},
+	{regexp.MustCompile(`(?i)\.(txz|tar\.xz)$`), []aop{opUnxz, opUntar}},
+	{regexp.MustCompile(`(?i)\.bz2$`), []aop{opUnbzip2, opWriteSingleton}},
+	{regexp.MustCompile(`(?i)\.gz$`), []aop{opUngzip, opWriteSingleton}},
+	{regexp.MustCompile(`(?i)\.xz$`), []aop{opUnxz, opWriteSingleton}},
+}
+
+// ExtractFile2 extracts the contents of the file archive at the given filePath.
 // The filterStrings argument accepts a slice of strings (which will be compiled
 // into [regexp.Regexp] objects) to filter what will be extracted from the file
 // archive.
 func ExtractFile(filePath string, filterStrings []string, overwrite bool) error {
-	filters, err := compileFilters(filterStrings)
+	filters, err := util.CompileFilters(filterStrings)
 	if err != nil {
 		log.Fatalf("failed to compile --keep filters, error: %s", err)
 	}
@@ -61,115 +81,72 @@ func ExtractFile(filePath string, filterStrings []string, overwrite bool) error 
 	}
 	defer a.Close()
 
-	for _, h := range extHandlers {
-		if !h.Matcher.MatchString(filePath) {
+	var outputDir string = "."
+
+	for _, strategy := range strategies {
+		if !strategy.FilenameRegexp.MatchString(filePath) {
 			continue
 		}
-		// it's important to populate this with the first matcher because we
+		// it's important to populate this with the first matcher found because we
 		// need to support different handlers for example.tar.gz and example.gz
-		a.PathNoExt = h.Matcher.ReplaceAllString(filePath, "")
-		if err := h.Handler(a, ".", filters, overwrite); err != nil {
-			log.Fatalf("failed to handle extraction for %s; error: %s", filePath, err)
+		a.PathNoExt = strategy.FilenameRegexp.ReplaceAllString(filePath, "")
+		for _, op := range strategy.Operations {
+			var err error
+			var extractedFiles []string
+
+			// op >= 200: multi-file writers, which always terminate the operation list
+			if op >= 200 {
+				log.Infof("extracting (%s) %s", archiveOpNames[op], a.Path)
+				switch op {
+				case opUn7z:
+					extractedFiles = a.Un7z(outputDir, filters, overwrite)
+				case opUntar:
+					extractedFiles = a.Untar(outputDir, filters, overwrite)
+				case opUnzip:
+					extractedFiles = a.Unzip(outputDir, filters, overwrite)
+				default:
+					panic(fmt.Sprintf("Encountered unhandled archive operation %d (%s)", op, archiveOpNames[op]))
+				}
+				if len(extractedFiles) < 1 {
+					return fmt.Errorf("No files were extracted from archive; stopping extraction")
+				}
+				return nil
+			}
+
+			// op >= 100: single-file writers which always terminate the operation list
+			if op >= 100 {
+				log.Debugf("writing decompressed contents of %s", a.Path)
+				switch op {
+				case opWriteSingleton:
+					err = a.WriteSingleton(a.PathNoExt, a.FileStats.Mode().Perm(), overwrite)
+				default:
+					panic(fmt.Sprintf("Encountered unhandled archive operation %d (%s)", op, archiveOpNames[op]))
+				}
+				return err
+			}
+
+			// op < 100: decompressors that don't write files and never terminate the operation list
+			log.Infof("decompressing (%s) %s", archiveOpNames[op], a.Path)
+			switch op {
+			case opUnbzip2:
+				err = a.Unbzip2()
+			case opUngzip:
+				err = a.Ungzip()
+			case opUnxz:
+				err = a.Unxz()
+			default:
+				panic(fmt.Sprintf("Encountered unhandled archive operation %d (%s)", op, archiveOpNames[op]))
+			}
+			if err != nil {
+				return fmt.Errorf(`decompressing (%s) "%s" failed; error:%s`, archiveOpNames[op], a.Path, err)
+			}
+			continue
 		}
-		log.Info("extraction complete")
-		return nil
+
+		// none of the operations returned from this function
+		panic("reached code that should be unreachable oplists should terminate with ops >=100 but were're still here")
 	}
 
-	return fmt.Errorf("Don't know how to extract %s (no handler)", filePath)
-}
-
-func handle7z(a *Archive, outputPath string, filters FilterSet, overwrite bool) error {
-	log.Infof("extracting (7z) %s", a.Path)
-	extractedFiles := a.Un7z(outputPath, filters, overwrite)
-	if len(extractedFiles) > 0 {
-		return nil
-	}
-	return fmt.Errorf("problem extracting %s: no files were produced", a.Path)
-}
-
-func handleTar(a *Archive, outputPath string, filters FilterSet, overwrite bool) error {
-	log.Infof("extracting (tar) %s", a.Path)
-	extractedFiles := a.Untar(outputPath, filters, overwrite)
-	if len(extractedFiles) > 0 {
-		return nil
-	}
-	return fmt.Errorf("problem extracting %s: no files were produced", a.Path)
-}
-
-func handleZip(a *Archive, outputPath string, filters FilterSet, overwrite bool) error {
-	log.Infof("extracting (zip) %s", a.Path)
-	extractedFiles := a.Unzip(outputPath, filters, overwrite)
-	if len(extractedFiles) > 0 {
-		return nil
-	}
-	return fmt.Errorf("problem extracting %s: no files were produced", a.Path)
-}
-
-func handleTbz2(a *Archive, outputPath string, filters FilterSet, overwrite bool) error {
-	log.Infof("extracting (tbz2) %s", a.Path)
-	if err := a.Unbzip2(); err != nil {
-		return fmt.Errorf("uncompressing (bzip2) %s failed; error: %s", a.Path, err)
-	}
-	extractedFiles := a.Untar(outputPath, filters, overwrite)
-	if len(extractedFiles) > 0 {
-		return nil
-	}
-	return fmt.Errorf("problem extracting %s: no files were produced", a.Path)
-}
-
-func handleTgz(a *Archive, outputPath string, filters FilterSet, overwrite bool) error {
-	log.Infof("extracting (tgz) %s", a.Path)
-	if err := a.Ungzip(); err != nil {
-		return fmt.Errorf("uncompressing (gzip) %s failed; error: %s", a.Path, err)
-	}
-	extractedFiles := a.Untar(outputPath, filters, overwrite)
-	if len(extractedFiles) > 0 {
-		return nil
-	}
-	return fmt.Errorf("problem extracting %s: no files were produced", a.Path)
-}
-
-func handleTxz(a *Archive, outputPath string, filters FilterSet, overwrite bool) error {
-	log.Infof("extracting (txz) %s", a.Path)
-	if err := a.Unxz(); err != nil {
-		return fmt.Errorf("uncompressing (xz) %s failed; error: %s", a.Path, err)
-	}
-	extractedFiles := a.Untar(outputPath, filters, overwrite)
-	if len(extractedFiles) > 0 {
-		return nil
-	}
-	return fmt.Errorf("problem extracting %s: no files were produced", a.Path)
-}
-
-func handleBz2(a *Archive, outputPath string, filters FilterSet, overwrite bool) error {
-	log.Infof("extracting (bz2) %s", a.Path)
-	if err := a.Unbzip2(); err != nil {
-		return fmt.Errorf("uncompressing (bz2) %s failed; error: %s", a.Path, err)
-	}
-	if err := a.WriteSingleton(a.PathNoExt, a.FileStats.Mode().Perm(), overwrite); err != nil {
-		return fmt.Errorf("Unable to write the downloaded file %s; error: %s", a.PathNoExt, err)
-	}
-	return nil
-}
-
-func handleGz(a *Archive, outputPath string, filters FilterSet, overwrite bool) error {
-	log.Infof("extracting (gz) %s", a.Path)
-	if err := a.Ungzip(); err != nil {
-		return fmt.Errorf("uncompressing (gz) %s failed; error: %s", a.Path, err)
-	}
-	if err := a.WriteSingleton(a.PathNoExt, a.FileStats.Mode().Perm(), overwrite); err != nil {
-		return fmt.Errorf("Unable to write the downloaded file %s; error: %s", a.PathNoExt, err)
-	}
-	return nil
-}
-
-func handleXz(a *Archive, outputPath string, filters FilterSet, overwrite bool) error {
-	log.Infof("extracting (xz) %s", a.Path)
-	if err := a.Unxz(); err != nil {
-		return fmt.Errorf("uncompressing (xz) %s failed; error: %s", a.Path, err)
-	}
-	if err := a.WriteSingleton(a.PathNoExt, a.FileStats.Mode().Perm(), overwrite); err != nil {
-		return fmt.Errorf("Unable to write the downloaded file %s; error: %s", a.PathNoExt, err)
-	}
-	return nil
+	// none of the matchers matched
+	return fmt.Errorf(`Don't know how to extract file:"%s"`, filePath)
 }

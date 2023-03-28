@@ -1,9 +1,7 @@
 package extract
 
 import (
-	"io"
-	"os"
-
+	"github.com/backplane/ghlatest/util"
 	"github.com/bodgit/sevenzip"
 	log "github.com/sirupsen/logrus"
 )
@@ -13,7 +11,7 @@ import (
 // files are only extracted if they match one of the given filters. If the
 // files to be created conflict with existing files in the outputDir then
 // extraction will stop unless the overwrite argument is set to true.
-func (a *Archive) Un7z(outputDir string, filters FilterSet, overwrite bool) []string {
+func (a *Archive) Un7z(outputDir string, filters util.FilterSet, overwrite bool) []string {
 	// https://pkg.go.dev/github.com/bodgit/sevenzip@v1.4.0
 
 	// fixme: outputDir is not currently implemented!
@@ -27,7 +25,7 @@ func (a *Archive) Un7z(outputDir string, filters FilterSet, overwrite bool) []st
 	var filtering bool = len(filters) > 0
 
 	for _, f := range r.File {
-		filePath := NormalizeFilePath(f.Name)
+		filePath := util.NormalizeFilePath(f.Name)
 		mode := f.Mode().Perm()
 		if filtering {
 			var include_file bool = false
@@ -44,9 +42,10 @@ func (a *Archive) Un7z(outputDir string, filters FilterSet, overwrite bool) []st
 		}
 
 		if f.FileInfo().IsDir() {
-			log.Infof("creating directory %s mode: %#o", filePath, mode)
-			if err := os.Mkdir(filePath, mode); err != nil {
-				log.Fatal(err)
+			err := util.NewDirectory(filePath, mode)
+			if err != nil {
+				log.Errorf("skipping any remaining files in archive")
+				break
 			}
 			extractedFiles = append(extractedFiles, filePath)
 			continue
@@ -56,19 +55,14 @@ func (a *Archive) Un7z(outputDir string, filters FilterSet, overwrite bool) []st
 		if err != nil {
 			log.Fatalf("Opening source contents of %s failed; error: %s", filePath, err)
 		}
+		defer srcContents.Close()
 
-		outputFile, err := NewFile(filePath, mode, overwrite)
+		_, err = util.NewFileFromSource(filePath, mode, overwrite, srcContents)
 		if err != nil {
-			log.Fatalf("Opening output file of %s failed; error: %s", filePath, err)
+			log.Errorf("skipping any remaining files in archive")
+			break
 		}
 
-		bytes, err := io.Copy(outputFile, srcContents)
-		if err != nil {
-			log.Fatal(err)
-		}
-		outputFile.Close()
-		srcContents.Close()
-		log.Infof("created %d-byte file: %s mode: %#o", bytes, filePath, mode)
 		extractedFiles = append(extractedFiles, filePath)
 	}
 	return extractedFiles

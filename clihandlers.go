@@ -10,12 +10,13 @@ import (
 	"strings"
 
 	"github.com/backplane/ghlatest/extract"
+	"github.com/backplane/ghlatest/util"
 	log "github.com/sirupsen/logrus"
 	cli "github.com/urfave/cli/v2"
 )
 
-func getFilterList(c *cli.Context) []*regexp.Regexp {
-	filters := make([]*regexp.Regexp, 0, 2)
+func getFilterList(c *cli.Context) util.FilterSet {
+	filters := make(util.FilterSet, 0, 2)
 
 	// process the --filter and --ifilter argument
 	for _, filterString := range c.StringSlice("filter") {
@@ -80,7 +81,7 @@ func listHandler(c *cli.Context) error {
 		return err
 	}
 
-	for _, assetURL := range latestReleasedAssets(owner, repo, getFilterList(c)) {
+	for _, assetURL := range latestReleasedAssets(owner, repo, getFilterList(c), c.Bool("source")) {
 		fmt.Println(assetURL)
 	}
 
@@ -100,7 +101,7 @@ func downloadHandler(c *cli.Context) error {
 	}
 
 	// determine the assetsURL
-	assets := latestReleasedAssets(owner, repo, getFilterList(c))
+	assets := latestReleasedAssets(owner, repo, getFilterList(c), c.Bool("source"))
 	if len(assets) != 1 {
 		log.Fatalf("found %d matching downloads, use a -f flag to get the match count down to exactly 1\n", len(assets))
 	}
@@ -116,6 +117,11 @@ func downloadHandler(c *cli.Context) error {
 		// give it the name from the url -- everything after the last slash
 		// kind of like basename
 		outputpath = assetURL[strings.LastIndex(assetURL, "/")+1:]
+		if c.Bool("source") {
+			// tarball downloads need better naming
+			outputpath = fmt.Sprintf("%s_%s_%s.tgz", owner, repo, outputpath)
+		}
+
 		// quick validation for the above calculated name
 		if !filenameRegexp.MatchString(outputpath) {
 			return fmt.Errorf("could not correctly calculate an output filename from %s", assetURL)
@@ -130,7 +136,7 @@ func downloadHandler(c *cli.Context) error {
 	}
 
 	// do the download
-	err = downloadFile(assets[0], outputpath, os.FileMode(mode), c.Bool("overwrite"))
+	err = util.DownloadFile(assets[0], outputpath, os.FileMode(mode), c.Bool("overwrite"))
 	if err != nil {
 		return err
 	}
