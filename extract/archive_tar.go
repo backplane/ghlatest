@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 
+	"github.com/backplane/ghlatest/util"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -13,9 +14,12 @@ import (
 // are only extracted if they match one of the given filters. If the files to
 // be created conflict with existing files in the outputDir then extraction
 // will stop unless the overwrite argument is set to true.
-func (a *Archive) Untar(outputDir string, filters FilterSet, overwrite bool) []string {
+func (a *Archive) Untar(outputDir string, filters util.FilterSet, overwrite bool) []string {
 	// see: https://pkg.go.dev/archive/tar#pkg-overview
 	// Open and iterate through the files in the archive.
+
+	// fixme: outputDir is not currently implemented!
+
 	var tr *tar.Reader
 	if a.StreamHandle != nil {
 		// StreamHandle would be available if we're decompressing as well
@@ -27,10 +31,7 @@ func (a *Archive) Untar(outputDir string, filters FilterSet, overwrite bool) []s
 	}
 
 	extractedFiles := make([]string, 0)
-	var filtering bool = false
-	if len(filters) > 0 {
-		filtering = true
-	}
+	var filtering bool = len(filters) > 0
 
 	for {
 		f, err := tr.Next()
@@ -41,7 +42,7 @@ func (a *Archive) Untar(outputDir string, filters FilterSet, overwrite bool) []s
 			log.Fatal(err)
 		}
 
-		filePath := NormalizeFilePath(f.Name)
+		filePath := util.NormalizeFilePath(f.Name)
 		if filtering {
 			var include_file bool = false
 			for _, filter := range filters {
@@ -51,34 +52,51 @@ func (a *Archive) Untar(outputDir string, filters FilterSet, overwrite bool) []s
 				}
 			}
 			if !include_file {
+				log.Debugf("Skipping %s", filePath)
 				continue
 			}
 		}
 
 		permissions := f.FileInfo().Mode().Perm()
-		if f.FileInfo().IsDir() {
-			log.Infof("creating directory %s mode: %#o", filePath, permissions)
-			err := os.MkdirAll(filePath, permissions)
+		switch f.Typeflag {
+		case tar.TypeReg:
+			_, err = util.NewFileFromSource(filePath, permissions, overwrite, tr)
 			if err != nil {
-				log.Fatal(err)
+				log.Errorf("%s: extracting file failed; error: %s; skipping any remaining files in archive", filePath, err)
+				goto CONTINUE_OUTER
 			}
-			extractedFiles = append(extractedFiles, filePath)
+		case tar.TypeLink:
+			err = os.Link(f.Linkname, filePath)
+			if err != nil {
+				log.Errorf("%s: creating symlink failed; error: %s; skipping any remaining files in archive", filePath, err)
+				goto CONTINUE_OUTER
+			}
+		case tar.TypeSymlink:
+			err = os.Symlink(f.Linkname, filePath)
+			if err != nil {
+				log.Errorf("%s: creating symlink failed; error: %s; skipping any remaining files in archive", filePath, err)
+				goto CONTINUE_OUTER
+			}
+		case tar.TypeDir:
+			err := util.NewDirectory(filePath, permissions)
+			if err != nil {
+				log.Errorf("%s: mkdir failed; error: %s; skipping any remaining files in archive", filePath, err)
+				goto CONTINUE_OUTER
+			}
+		case tar.TypeFifo:
+			log.Errorf("%s: mkfifo skipped; extracting FIFOs is not currently supported", filePath)
 			continue
+		case tar.TypeXGlobalHeader:
+			log.Debugf("%s: skipping pax global header file", filePath)
+			continue
+		case tar.TypeGNUSparse:
+			log.Debugf("%s: GNU Sparse files are not supported", filePath)
+			goto CONTINUE_OUTER
+		default:
+			log.Errorf("%s: unknown type %d; skipping any remaining files in archive", filePath, f.Typeflag)
 		}
-
-		outputFile, err := NewFile(filePath, permissions, overwrite)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		_, err = io.Copy(outputFile, tr)
-		if err != nil {
-			log.Fatal(err)
-		}
-		outputFile.Close()
-		log.Infof("created %s mode: %#o", filePath, permissions)
 		extractedFiles = append(extractedFiles, filePath)
-
 	}
+CONTINUE_OUTER:
 	return extractedFiles
 }

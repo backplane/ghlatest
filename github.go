@@ -9,7 +9,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func latestReleasedAssets(owner string, repo string, filters []*regexp.Regexp) []string {
+func latestReleasedAssets(owner string, repo string, filters []*regexp.Regexp, source bool) []string {
 	// given a github owner & repo name, return a list of assets from the
 	// latest release, optionally filtering results that match the given
 	// filter regexp
@@ -23,6 +23,10 @@ func latestReleasedAssets(owner string, repo string, filters []*regexp.Regexp) [
 	release, _, err := client.Repositories.GetLatestRelease(ctx, owner, repo)
 	if err != nil {
 		log.Fatalf("Repositories.GetLatestRelease returned error: %v\n", err)
+	}
+	if source {
+		result = append(result, release.GetTarballURL())
+		return result
 	}
 	for _, asset := range release.Assets {
 		assetName := asset.GetName()

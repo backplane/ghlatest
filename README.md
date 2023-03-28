@@ -146,11 +146,11 @@ Now that I have that down to just a single URL I can change `ls` to `dl` to down
 
 ```
 $ ghlatest dl --current-os --current-arch --extract glvnst/snakeeyes
-INFO[0001] wrote 825399 bytes to snakeeyes_0.2.3_linux_arm64.tar.gz 
-INFO[0001] extracting (tgz) snakeeyes_0.2.3_linux_arm64.tar.gz 
-INFO[0001] created COPYING mode: 0644                   
-INFO[0001] created README.md mode: 0644                 
-INFO[0001] created snakeeyes mode: 0755                 
+INFO[0001] wrote 825399 bytes to snakeeyes_0.2.3_linux_arm64.tar.gz
+INFO[0001] extracting (tgz) snakeeyes_0.2.3_linux_arm64.tar.gz
+INFO[0001] created COPYING mode: 0644
+INFO[0001] created README.md mode: 0644
+INFO[0001] created snakeeyes mode: 0755
 INFO[0001] extraction complete
 $ ls -al
 total 3156
@@ -166,10 +166,10 @@ That produced a lot of files that I don't want at the moment. So I'll add a `--k
 
 ```
 $ ghlatest dl --current-os --current-arch --extract --keep snakeeyes --rm glvnst/snakeeyes
-INFO[0001] wrote 825399 bytes to snakeeyes_0.2.3_linux_arm64.tar.gz 
-INFO[0001] extracting (tgz) snakeeyes_0.2.3_linux_arm64.tar.gz 
-INFO[0001] created snakeeyes mode: 0755                 
-INFO[0001] extraction complete                          
+INFO[0001] wrote 825399 bytes to snakeeyes_0.2.3_linux_arm64.tar.gz
+INFO[0001] extracting (tgz) snakeeyes_0.2.3_linux_arm64.tar.gz
+INFO[0001] created snakeeyes mode: 0755
+INFO[0001] extraction complete
 INFO[0001] removed "snakeeyes_0.2.3_linux_arm64.tar.gz" after extraction
 $ $ ls -al
 total 2304
