@@ -5,7 +5,7 @@ go 1.20
 require (
 	github.com/bodgit/sevenzip v1.4.0
 	github.com/google/go-github/v33 v33.0.0
-	github.com/sirupsen/logrus v1.9.0
+	github.com/sirupsen/logrus v1.9.3
 	github.com/ulikunitz/xz v0.5.11
 	github.com/urfave/cli/v2 v2.25.1
 )
