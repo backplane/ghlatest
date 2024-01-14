@@ -65,7 +65,7 @@ var strategies = []filenameStrategy{
 	{regexp.MustCompile(`(?i)\.xz$`), []aop{opUnxz, opWriteSingleton}},
 }
 
-// ExtractFile2 extracts the contents of the file archive at the given filePath.
+// ExtractFile extracts the contents of the file archive at the given filePath.
 // The filterStrings argument accepts a slice of strings (which will be compiled
 // into [regexp.Regexp] objects) to filter what will be extracted from the file
 // archive.
@@ -108,7 +108,7 @@ func ExtractFile(filePath string, filterStrings []string, overwrite bool) error 
 					panic(fmt.Sprintf("Encountered unhandled archive operation %d (%s)", op, archiveOpNames[op]))
 				}
 				if len(extractedFiles) < 1 {
-					return fmt.Errorf("No files were extracted from archive; stopping extraction")
+					return fmt.Errorf("no files were extracted from archive; stopping extraction")
 				}
 				return nil
 			}
@@ -148,5 +148,5 @@ func ExtractFile(filePath string, filterStrings []string, overwrite bool) error 
 	}
 
 	// none of the matchers matched
-	return fmt.Errorf(`Don't know how to extract file:"%s"`, filePath)
+	return fmt.Errorf(`don't know how to extract file:"%s"`, filePath)
 }
