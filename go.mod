@@ -3,7 +3,7 @@ module github.com/backplane/ghlatest
 go 1.20
 
 require (
-	github.com/bodgit/sevenzip v1.4.5
+	github.com/bodgit/sevenzip v1.5.0
 	github.com/google/go-github/v33 v33.0.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/ulikunitz/xz v0.5.11
@@ -18,7 +18,7 @@ require (
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
-	github.com/klauspost/compress v1.17.4 // indirect
+	github.com/klauspost/compress v1.17.6 // indirect
 	github.com/pierrec/lz4/v4 v4.1.21 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/xrash/smetrics v0.0.0-20231213231151-1d8dd44e695e // indirect
