@@ -41,8 +41,10 @@ func init() {
 		arch_subregex = `(amd64|x64|x86_64)`
 	case `arm64`:
 		arch_subregex = `(arm64|aarch64)`
+	case `armbe`:
+		arch_subregex = `arm(be|eb)`
 	case `arm`:
-		arch_subregex = `(arm(v[\d]{,2}|\w{2,3})?|aarch32)`
+		arch_subregex = `arm(v?[\d]l?|hf|el|aarch32)?`
 	default:
 		arch_subregex = runtime.GOARCH
 	}
