@@ -1,6 +1,6 @@
 module github.com/backplane/ghlatest
 
-go 1.20
+go 1.22
 
 require (
 	github.com/bodgit/sevenzip v1.5.1
