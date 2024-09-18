@@ -23,7 +23,7 @@ universal_binaries:
   - id: cli
     replace: false
 archives:
-  - id: cli
+  - id: ghlatest
     format_overrides:
       - goos: windows
         format: zip
