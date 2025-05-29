@@ -12,6 +12,7 @@
 .Spotlight-V100
 .Trashes
 ._*
+.mypy_cache
 Icon
 [568vq].out
 _cgo_defun.c
@@ -20,6 +21,7 @@ _cgo_gotypes.go
 _obj
 _test
 _testmain.go
+build
 coverage.txt
 cross/
 devnotes.md
